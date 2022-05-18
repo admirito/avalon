@@ -1,0 +1,9 @@
+* Avalon
+
+=Avalon= is a extendable scalable high-performance streaming data
+generator that can be used to simulate the real-time input for various
+systems.
+
+The =Avalan= name is based on the name of a legendary island featured
+in the Arthurian legend and it has nothing to do with the proprietary
+[[https://www.spirent.com/products/avalanche-security-testing][Spirent Avalanche]] traffic generator.
