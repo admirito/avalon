@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
 import time
+import random
+import socket
+import struct
+import re
 
 
 class Models:
@@ -66,6 +70,105 @@ class TestModel(BaseModel):
         return {"_id": f"test{self._id}",
                 "_ts": int(_ts),
                 "_ms": int(_ms * 1000000)}
+
+
+class RflowModel(BaseModel):
+    """
+    Rflow generator
+    """
+    _id_counter = 0
+    metadata_list = None
+
+    def __init__(self, metadata_file = "metadata-list.sh"):
+        super().__init__()
+
+        self.__class__._id_counter += 1
+        self._id = self._id_counter
+
+        self.curr_flow_id = 0
+
+        if self.__class__.metadata_list:
+            self.__class__.metadata_list = list()
+            with open(metadata_file, 'r') as f:
+                re_groups = re.match(f.read(), '"(\S+)"').groups()
+                for g in re_groups:
+                    self.__class__.metadata_list.append(g)
+
+    def next(self):
+        # Identifications
+        flow_id = self.curr_flow_id
+        self.curr_flow_id += 1
+        session_id = self._id
+        sensor_id = 0
+
+        # Flow Key
+        src_ip = socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xffffffff)))
+        src_port = random.randint(0, 0xffff)
+        dst_ip = socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xffffffff)))
+        dst_port = random.randint(0, 0xffff)
+
+        # Protocols
+        l4_protocol = random.randint(0, 50)
+        l7_protocol = random.randint(0, 2500)
+
+        # interfaces
+        input_if_id = random.randint(-1, 0xffffffff) # 4 byte
+        output_if_id = random.randint(-1, 0xffffffff) # 4 byte
+
+        # timestamps
+        first_byte_ts = random.randint(0, 0xfffffff)
+        last_byte_ts = first_byte_ts + random.randint(0, 0xfffff) # 20 bit
+
+        # packet stats
+        packet_no_send = random.randint(0, 0xffffffffffff) # 6 byte
+        packet_no_recv = random.randint(0, 0xffffffffffff) # 6 byte
+
+        # total transmitted volume
+        volume_send = packet_no_send * random.randint(1400, 1550) # packet count * random avg packet size
+        volume_recv = packet_no_recv * random.randint(1400, 1550) # packet count * random avg packet size
+
+        #protocol specific data
+        protocol_data_send = random.randint(0, 1)
+        protocol_data_recv = random.randint(0, 1)
+
+        # flow termination
+        flow_terminated = True
+
+        # flow metadata
+        metadata_count = random.randint(0, len(self.__class__.metadata_list))
+        sample_metadata = random.sample((0, len(self.__class__.metadata_list)), metadata_count)
+        flow_metadata = {}
+        for i in sample_metadata:
+            flow_metadata[self.__class__.metadata_list[i]] = "some dummy bytes"
+        
+        
+        return {"flow_id":flow_id, "session_id":session_id,
+            "src_ip":src_ip, "src_port":src_port, "dst_ip":dst_ip, "dst_port":dst_port, 
+            "l4_protocol":l4_protocol, "l7_protocol":l7_protocol,
+            "input_if_id":input_if_id, "output_if_id":output_if_id,
+            "first_byte_ts":first_byte_ts, "last_byte_ts":last_byte_ts,
+            "packet_no_send":packet_no_send, "packet_no_recv":packet_no_recv,
+            "volume_send":volume_send, "volume_recv":volume_recv,
+            "flow_terminated":flow_terminated,
+            "protocol_data_send":protocol_data_send, "protocol_data_recv":protocol_data_recv, 
+            }.update(flow_metadata)
+        
+
+
+class LogModel(BaseModel):
+    """
+    Log generator
+    """
+    _id_counter = 0
+    
+    def __init__(self):
+        super().__init__()
+
+        self.__class__._id_counter += 1
+        self._id = self._id_counter
+
+    def next(self):
+        pass
 
 
 def get_models():

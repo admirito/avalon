@@ -4,6 +4,7 @@ import csv
 import io
 import itertools
 import json
+from . import BaseModel
 
 
 class Formats:
@@ -88,6 +89,28 @@ class CSVFormat(LineBaseFormat):
 
     def get_headers(self):
         return list(self._fieldnames)
+
+
+class FlowProtoBuffFormat(BaseFormat):
+    """
+    Serialize data using google protocol buffer.
+    """
+    def __init__(self, proto_file:str):
+        pass
+
+    def batch(self, model:FlowModel, size:int) -> list:
+        pass
+
+
+class LogProtoBuffFormat(BaseFormat):
+    """
+    Serialize data using google protocol buffer.
+    """
+    def __init__(self, proto_file:str):
+        pass
+
+    def batch(self, model:LogModel, size:int) -> list:
+        pass
 
 
 def get_formats():

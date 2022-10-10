@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 
 import multiprocessing
+import socket
+from socket import socket
+import sys
 import zlib
+import asyncio
 
 import requests
 
@@ -64,3 +68,31 @@ class SingleHTTPRequest(BaseMedia):
             headers["Content-Encoding"] = "gzip"
 
         requests.request(method, url, headers=headers, data=batch)
+
+
+class MessageBroadcast(BaseMedia):
+    """
+    Sends a message as a buffer of bytes to a tcp socket
+    first four byte is an integer shows buffer len
+    """
+    def __init__(self, ip:str, port:int):
+        self.ch_mgr
+        connection_list = list()
+        self.socket = socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            self.socket.bind((ip, port))
+            self.socket.listen()
+            while True:
+                temp_conn, addr = self.socket.accept()
+                connection_list.append(temp_conn)
+                print(f"new connection received {addr}",
+                    addr.ip, addr.port)
+        except Exception as e:
+            sys.stderr.write(str(e))
+
+    def _write(self, batch):
+        try:
+            for buffer in batch:
+                pass
+        except Exception as e:
+            sys.stderr.write(str(e))
