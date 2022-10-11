@@ -88,30 +88,10 @@ class CSVFormat(LineBaseFormat):
         return fp.getvalue()[:-1]
 
     def get_headers(self):
-        return list(self._fieldnames)
+        return list()
 
-
-class FlowProtoBuffFormat(BaseFormat):
-    """
-    Serialize data using google protocol buffer.
-    """
-    def __init__(self, proto_file:str):
-        pass
-
-    def batch(self, model:FlowModel, size:int) -> list:
-        pass
-
-
-class LogProtoBuffFormat(BaseFormat):
-    """
-    Serialize data using google protocol buffer.
-    """
-    def __init__(self, proto_file:str):
-        pass
-
-    def batch(self, model:LogModel, size:int) -> list:
-        pass
-
+    def batch(self, model, size): # every batch can be considered as a file
+        return ','.join(self._fieldnames) + '\n' + super().batch()
 
 def get_formats():
     """

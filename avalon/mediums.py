@@ -3,7 +3,7 @@
 import multiprocessing
 import socket
 from socket import socket
-import sys
+import sys, os
 import zlib
 import asyncio
 
@@ -45,6 +45,17 @@ class FileMedia(BaseMedia):
         fp.write(batch)
 
 
+class DirectoryMedia(BaseMedia):
+    _index = 0
+    
+    def _write(self, batch):
+        curr_file = os.path.join(self._options["directory"],
+            str(self.__class__._index) + '.' + self._options["postfix"])
+        with open(curr_file, 'w') as f:
+            f.write(batch)
+        self.__class__._index += 1
+
+
 class SingleHTTPRequest(BaseMedia):
     """
     Initialize keyword options:
@@ -68,31 +79,3 @@ class SingleHTTPRequest(BaseMedia):
             headers["Content-Encoding"] = "gzip"
 
         requests.request(method, url, headers=headers, data=batch)
-
-
-class MessageBroadcast(BaseMedia):
-    """
-    Sends a message as a buffer of bytes to a tcp socket
-    first four byte is an integer shows buffer len
-    """
-    def __init__(self, ip:str, port:int):
-        self.ch_mgr
-        connection_list = list()
-        self.socket = socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            self.socket.bind((ip, port))
-            self.socket.listen()
-            while True:
-                temp_conn, addr = self.socket.accept()
-                connection_list.append(temp_conn)
-                print(f"new connection received {addr}",
-                    addr.ip, addr.port)
-        except Exception as e:
-            sys.stderr.write(str(e))
-
-    def _write(self, batch):
-        try:
-            for buffer in batch:
-                pass
-        except Exception as e:
-            sys.stderr.write(str(e))

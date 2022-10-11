@@ -56,6 +56,12 @@ def main():
         type=argparse.FileType("w"), dest="output_file",
         help="For file media, write output to <file> instead of stdout.")
     parser.add_argument(
+        "--directory", metavar="<N>", default='./AvalonOutput', type=str, dest="dir_path",
+        help="For directory media, it will be filled with bunch of files.")
+    parser.add_argument(
+        "--profix", metavar="<N>", default='txt', type=str, dest="postfix",
+        help="used with directory media, determine output files' postfix.")    
+    parser.add_argument(
         "--output-http-url", metavar="<url>",
         default="http://localhost:8081/mangolc",
         help="For http media, use <url> to send output.")
