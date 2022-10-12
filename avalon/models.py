@@ -72,7 +72,7 @@ class TestModel(BaseModel):
                 "_ms": int(_ms * 1000000)}
 
 
-class RflowModel(BaseModel):
+class RFlowModel(BaseModel):
     """
     Rflow generator
     """
@@ -187,7 +187,7 @@ def get_models():
         _models = Models()
 
     _models.register("test", TestModel)
-    _models.register("Rflow", RflowModel)
+    _models.register("RFlow", RFlowModel)
 
     return _models
 

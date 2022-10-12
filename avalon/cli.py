@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from ast import arg
 import re
 import sys
 
@@ -60,8 +61,8 @@ def main():
         type=str, dest="dir_path",
         help="Used with directory media, determines the directory relative name.")
     parser.add_argument(
-        "--postfix", metavar="<postfix>", default='txt', type=str, dest="postfix",
-        help="used with directory media, determines output files' postfix (without dot).")
+        "--suffix", metavar="<suffix>", default='txt', type=str, dest="suffix",
+        help="used with directory media, determines output files' suffix (without dot).")
     parser.add_argument(
         "--output-http-url", metavar="<url>",
         default="http://localhost:8081/mangolc",
@@ -130,7 +131,7 @@ def main():
         media = mediums.DirectoryMedia(
             max_writers=args.output_writers,
             directory=args.dir_path,
-            postfix=args.postfix
+            suffix=args.suffix
         )
 
     processor = processors.Processor(batch_generators, media, args.rate,

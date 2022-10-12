@@ -86,9 +86,6 @@ class CSVFormat(LineBaseFormat):
 
         return fp.getvalue()[:-1]
 
-    def get_headers(self):
-        return list()
-
     def batch(self, model, size): # every batch can be considered as a file
         data = super().batch(model, size)
         fp = io.StringIO()

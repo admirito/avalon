@@ -59,7 +59,7 @@ class DirectoryMedia(BaseMedia):
     def _write(self, batch):
         with self.lock:
             curr_file = os.path.join(self._options["directory"],
-                str(self._index.value) + '.' + self._options["postfix"])
+                str(self._index.value) + '.' + self._options["suffix"])
             self._index.value += 1
        
         with open(curr_file, 'w') as f:
