@@ -4,7 +4,6 @@ import csv
 import io
 import itertools
 import json
-from . import BaseModel
 
 
 class Formats:
@@ -91,7 +90,11 @@ class CSVFormat(LineBaseFormat):
         return list()
 
     def batch(self, model, size): # every batch can be considered as a file
-        return ','.join(self._fieldnames) + '\n' + super().batch()
+        data = super().batch(model, size)
+        fp = io.StringIO()
+        writer = csv.DictWriter(fp, self._fieldnames)
+        writer.writeheader()
+        return  fp.getvalue() + data
 
 def get_formats():
     """

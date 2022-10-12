@@ -4,11 +4,11 @@ import argparse
 import re
 import sys
 
-from . import __version__
-from . import formats
-from . import mediums
-from . import models
-from . import processors
+from __init__ import __version__
+import formats
+import mediums
+import models
+import processors
 
 
 def main():
@@ -46,7 +46,7 @@ def main():
         default="json-lines",
         help="Set the output format for serialization.")
     parser.add_argument(
-        "--output-media", choices=["file", "http"], default="file",
+        "--output-media", choices=["file", "http", "directory"], default="file",
         help="Set the output media for transferring data.")
     parser.add_argument(
         "--output-writers", metavar="<N>", type=int, default=4,
@@ -56,11 +56,12 @@ def main():
         type=argparse.FileType("w"), dest="output_file",
         help="For file media, write output to <file> instead of stdout.")
     parser.add_argument(
-        "--directory", metavar="<N>", default='./AvalonOutput', type=str, dest="dir_path",
-        help="For directory media, it will be filled with bunch of files.")
+        "--dir-name", metavar="<dir>", default='./AvalonOutput',
+        type=str, dest="dir_path",
+        help="Used with directory media, determines the directory relative name.")
     parser.add_argument(
-        "--profix", metavar="<N>", default='txt', type=str, dest="postfix",
-        help="used with directory media, determine output files' postfix.")    
+        "--postfix", metavar="<postfix>", default='txt', type=str, dest="postfix",
+        help="used with directory media, determines output files' postfix (without dot).")
     parser.add_argument(
         "--output-http-url", metavar="<url>",
         default="http://localhost:8081/mangolc",
@@ -125,6 +126,12 @@ def main():
             max_writers=args.output_writers,
             url=args.output_http_url,
             gzip=args.output_http_gzip)
+    elif args.output_media == "directory":
+        media = mediums.DirectoryMedia(
+            max_writers=args.output_writers,
+            directory=args.dir_path,
+            postfix=args.postfix
+        )
 
     processor = processors.Processor(batch_generators, media, args.rate,
                                      args.number, args.duration)

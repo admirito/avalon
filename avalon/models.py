@@ -87,10 +87,11 @@ class RflowModel(BaseModel):
 
         self.curr_flow_id = 0
 
-        if self.__class__.metadata_list:
+        if self.__class__.metadata_list is None:
             self.__class__.metadata_list = list()
             with open(metadata_file, 'r') as f:
-                re_groups = re.match(f.read(), '"(\S+)"').groups()
+                tmp_str = f.read()
+                re_groups = re.findall(r'"(\S+)"', tmp_str)
                 for g in re_groups:
                     self.__class__.metadata_list.append(g)
 
@@ -136,13 +137,13 @@ class RflowModel(BaseModel):
 
         # flow metadata
         metadata_count = random.randint(0, len(self.__class__.metadata_list))
-        sample_metadata = random.sample((0, len(self.__class__.metadata_list)), metadata_count)
+        sample_metadata = random.sample(list(range(len(self.__class__.metadata_list))), metadata_count)
         flow_metadata = {}
         for i in sample_metadata:
             flow_metadata[self.__class__.metadata_list[i]] = "some dummy bytes"
         
         
-        return {"flow_id":flow_id, "session_id":session_id,
+        t = {"flow_id":flow_id, "session_id":session_id,
             "src_ip":src_ip, "src_port":src_port, "dst_ip":dst_ip, "dst_port":dst_port, 
             "l4_protocol":l4_protocol, "l7_protocol":l7_protocol,
             "input_if_id":input_if_id, "output_if_id":output_if_id,
@@ -151,7 +152,9 @@ class RflowModel(BaseModel):
             "volume_send":volume_send, "volume_recv":volume_recv,
             "flow_terminated":flow_terminated,
             "protocol_data_send":protocol_data_send, "protocol_data_recv":protocol_data_recv, 
-            }.update(flow_metadata)
+            }
+        t.update(flow_metadata)
+        return t
         
 
 
@@ -184,6 +187,7 @@ def get_models():
         _models = Models()
 
     _models.register("test", TestModel)
+    _models.register("Rflow", RflowModel)
 
     return _models
 

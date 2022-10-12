@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+import ctypes
 import multiprocessing
+from multiprocessing.util import is_exiting
 import socket
 from socket import socket
 import sys, os
@@ -46,14 +48,23 @@ class FileMedia(BaseMedia):
 
 
 class DirectoryMedia(BaseMedia):
-    _index = 0
+    def __init__(self,  max_writers, **options):
+        super().__init__(max_writers, **options)
+
+        self._index = multiprocessing.Value(ctypes.c_long, 0)
+        self.lock = multiprocessing.Lock()
+        if not os.path.isdir(options["directory"]):
+            os.mkdir(options["directory"])
     
     def _write(self, batch):
-        curr_file = os.path.join(self._options["directory"],
-            str(self.__class__._index) + '.' + self._options["postfix"])
+        with self.lock:
+            curr_file = os.path.join(self._options["directory"],
+                str(self._index.value) + '.' + self._options["postfix"])
+            self._index.value += 1
+       
         with open(curr_file, 'w') as f:
             f.write(batch)
-        self.__class__._index += 1
+        
 
 
 class SingleHTTPRequest(BaseMedia):
