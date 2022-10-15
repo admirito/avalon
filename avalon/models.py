@@ -30,12 +30,12 @@ class Models:
         """
         return list(self._models.keys())
 
-    def model(self, model_name):
+    def model(self, model_name, **options):
         """
         Returns an instance of a model that can generate model
         data by calling its next() method.
         """
-        return self._models[model_name]()
+        return self._models[model_name](**options)
 
 
 class BaseModel:
@@ -43,6 +43,9 @@ class BaseModel:
     A generic parent for the Models. Each Model is responsible for
     generating data that could be serialized by a Format.
     """
+    def __init__(self, **options):
+        pass
+    
     def next(self):
         """
         Return the next generated item of the data model.
@@ -56,8 +59,8 @@ class TestModel(BaseModel):
     """
     _id_counter = 0
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **options):
+        super().__init__(**options)
 
         self.__class__._id_counter += 1
         self._id = self._id_counter
@@ -79,8 +82,8 @@ class RFlowModel(BaseModel):
     _id_counter = 0
     metadata_list = None
 
-    def __init__(self, metadata_file = "metadata-list.sh"):
-        super().__init__()
+    def __init__(self, **options):
+        super().__init__(**options)
 
         self.__class__._id_counter += 1
         self._id = self._id_counter
@@ -89,7 +92,7 @@ class RFlowModel(BaseModel):
 
         if self.__class__.metadata_list is None:
             self.__class__.metadata_list = list()
-            with open(metadata_file, 'r') as f:
+            with open(options["metadata_file_name"], 'r') as f:
                 tmp_str = f.read()
                 re_groups = re.findall(r'"(\S+)"', tmp_str)
                 for g in re_groups:
@@ -200,9 +203,9 @@ def models_list():
     return get_models().models_list()
 
 
-def model(model_name):
+def model(model_name, **options):
     """
     Syntactic suger to get a new model instance of the model name
     from the models singleton from get_models() method.
     """
-    return get_models().model(model_name)
+    return get_models().model(model_name, **options)

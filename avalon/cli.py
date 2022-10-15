@@ -28,6 +28,10 @@ def main():
         "of 100. The data will be generated based on the specified "
         "composition.")
     parser.add_argument(
+        "--metadata-file", metavar="<file>", type=str,
+        default="metadata-list.sh", dest="metadata_file_name",
+        help="Used with RFlow Model, determines the metadata list file.")
+    parser.add_argument(
         "--rate", metavar="<N>", type=int, default=1,
         help="Set avarage transfer rate to to <N> items per seconds.")
     parser.add_argument(
@@ -113,9 +117,10 @@ def main():
         # All instances together should generate the ratio
         ratio = ratio / instances if ratio is not None else None
 
+        models_options = {"metadata_file_name" : args.metadata_file_name}
         batch_generators.extend(
-            processors.BatchGenerator(models.model(model_name), _format,
-                                      batch_size, ratio)
+            processors.BatchGenerator(models.model(model_name, **models_options),
+                _format, batch_size, ratio)
             for _ in range(instances))
 
     if args.output_media == "file":
