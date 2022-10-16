@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 
-import ctypes
 import multiprocessing
 from multiprocessing.util import is_exiting
 import socket
 from socket import socket
-import sys, os
+import sys
+import os
 import zlib
-import asyncio
-
 import requests
 
 
@@ -51,21 +49,19 @@ class DirectoryMedia(BaseMedia):
     def __init__(self,  max_writers, **options):
         super().__init__(max_writers, **options)
 
-        self._index = multiprocessing.Value(ctypes.c_long, 0)
-        self.lock = multiprocessing.Lock()
-        if not os.path.isdir(options["directory"]):
-            os.mkdir(options["directory"])
+        self._index = multiprocessing.Value("l")
     
     def _write(self, batch):
-        with self.lock:
+        with self._index:
             curr_file = os.path.join(self._options["directory"],
-                str(self._index.value) + '.' + self._options["suffix"])
+                str(self._index.value) 
+                + ('.' if self._options["suffix"][0] != '.' else '')
+                + self._options["suffix"])
             self._index.value += 1
        
         with open(curr_file, 'w') as f:
             f.write(batch)
         
-
 
 class SingleHTTPRequest(BaseMedia):
     """

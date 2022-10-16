@@ -86,12 +86,20 @@ class CSVFormat(LineBaseFormat):
 
         return fp.getvalue()[:-1]
 
+
+class BatchHeaderedCSVFormat(CSVFormat):
+    """
+    Serialize data by generating a comma separated values per line.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+       
     def batch(self, model, size): # every batch can be considered as a file
         data = super().batch(model, size)
         fp = io.StringIO()
         writer = csv.DictWriter(fp, self._fieldnames)
         writer.writeheader()
-        return  fp.getvalue() + data
+        return  f"{fp.getvalue()}{data}"
 
 def get_formats():
     """
@@ -107,6 +115,7 @@ def get_formats():
 
     _formats.register("json-lines", JsonLinesFormat)
     _formats.register("csv", CSVFormat)
+    _formats.register("batch-headered-csv", BatchHeaderedCSVFormat)
 
     return _formats
 

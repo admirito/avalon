@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import time
+import datetime
 import random
 import socket
 import struct
@@ -106,30 +107,35 @@ class RFlowModel(BaseModel):
         sensor_id = 0
 
         # Flow Key
-        src_ip = socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xffffffff)))
+        src_ip = socket.inet_ntoa(
+            struct.pack('>I', random.randint(1, 0xffffffff)))
         src_port = random.randint(0, 0xffff)
-        dst_ip = socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xffffffff)))
+        dst_ip = socket.inet_ntoa(
+            struct.pack('>I', random.randint(1, 0xffffffff)))
         dst_port = random.randint(0, 0xffff)
 
         # Protocols
-        l4_protocol = random.randint(0, 50)
-        l7_protocol = random.randint(0, 2500)
+        l4_protocol = random.randint(0, 142)
+        l7_protocol = random.randint(0, 2988)
 
         # interfaces
-        input_if_id = random.randint(-1, 0xffffffff) # 4 byte
-        output_if_id = random.randint(-1, 0xffffffff) # 4 byte
+        input_if_id = random.randint(-1, 0xffffffff)   # 4 byte
+        output_if_id = random.randint(-1, 0xffffffff)  # 4 byte
 
         # timestamps
-        first_byte_ts = random.randint(0, 0xfffffff)
-        last_byte_ts = first_byte_ts + random.randint(0, 0xfffff) # 20 bit
+        first_byte_ts = datetime.datetime.now()
+        last_byte_ts = first_byte_ts \
+            + datetime.timedelta(
+                0, random.randint(0, 0xfff), random.randint(0, 0xfff))
 
         # packet stats
-        packet_no_send = random.randint(0, 0xffffffffffff) # 6 byte
-        packet_no_recv = random.randint(0, 0xffffffffffff) # 6 byte
+        packet_no_send = random.randint(0, 0xffffffffffff)  # 6 byte
+        packet_no_recv = random.randint(0, 0xffffffffffff)  # 6 byte
 
         # total transmitted volume
-        volume_send = packet_no_send * random.randint(1400, 1550) # packet count * random avg packet size
-        volume_recv = packet_no_recv * random.randint(1400, 1550) # packet count * random avg packet size
+        # packet count * random avg packet size
+        volume_send = packet_no_send * random.randint(1400, 1550)
+        volume_recv = packet_no_recv * random.randint(1400, 1550)
 
         #protocol specific data
         protocol_data_send = random.randint(0, 1)
@@ -140,25 +146,28 @@ class RFlowModel(BaseModel):
 
         # flow metadata
         metadata_count = random.randint(0, len(self.__class__.metadata_list))
-        sample_metadata = random.sample(list(range(len(self.__class__.metadata_list))), metadata_count)
+        sample_metadata = random.sample(
+            list(range(len(self.__class__.metadata_list))), metadata_count)
         flow_metadata = {}
         for i in sample_metadata:
             flow_metadata[self.__class__.metadata_list[i]] = "some dummy bytes"
         
-        
-        t = {"flow_id":flow_id, "session_id":session_id,
-            "src_ip":src_ip, "src_port":src_port, "dst_ip":dst_ip, "dst_port":dst_port, 
+        rflow_dict = {
+            "flow_id":flow_id, "session_id":session_id,
+            "src_ip":src_ip, "src_port":src_port,
+            "dst_ip":dst_ip, "dst_port":dst_port, 
             "l4_protocol":l4_protocol, "l7_protocol":l7_protocol,
             "input_if_id":input_if_id, "output_if_id":output_if_id,
-            "first_byte_ts":first_byte_ts, "last_byte_ts":last_byte_ts,
+            "first_byte_ts":str(first_byte_ts),
+            "last_byte_ts":str(last_byte_ts),
             "packet_no_send":packet_no_send, "packet_no_recv":packet_no_recv,
             "volume_send":volume_send, "volume_recv":volume_recv,
             "flow_terminated":flow_terminated,
-            "protocol_data_send":protocol_data_send, "protocol_data_recv":protocol_data_recv, 
+            "protocol_data_send":protocol_data_send,
+            "protocol_data_recv":protocol_data_recv,
             }
-        t.update(flow_metadata)
-        return t
-        
+        rflow_dict.update(flow_metadata)
+        return rflow_dict
 
 
 class LogModel(BaseModel):

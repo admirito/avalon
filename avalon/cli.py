@@ -51,8 +51,8 @@ def main():
         default="json-lines",
         help="Set the output format for serialization.")
     parser.add_argument(
-        "--output-media", choices=["file", "http", "directory"], default="file",
-        help="Set the output media for transferring data.")
+        "--output-media", choices=["file", "http", "directory"],
+        default="file", help="Set the output media for transferring data.")
     parser.add_argument(
         "--output-writers", metavar="<N>", type=int, default=4,
         help="Limit the maximum number of simultaneous output writers to <N>.")
@@ -61,12 +61,13 @@ def main():
         type=argparse.FileType("w"), dest="output_file",
         help="For file media, write output to <file> instead of stdout.")
     parser.add_argument(
-        "--dir-name", metavar="<dir>", default='./AvalonOutput',
+        "--dir-name", metavar="<dir>", default="avalon-output",
         type=str, dest="dir_path",
-        help="Used with directory media, determines the directory relative name.")
+        help="Used with directory media, \
+            determines the directory relative name.")
     parser.add_argument(
-        "--suffix", metavar="<suffix>", default='txt', type=str, dest="suffix",
-        help="used with directory media, determines output files' suffix (without dot).")
+        "--suffix", metavar="<suffix>", type=str, dest="suffix",
+        help="used with directory media, determines output files' suffix.")
     parser.add_argument(
         "--output-http-url", metavar="<url>",
         default="http://localhost:8081/mangolc",
@@ -119,7 +120,8 @@ def main():
 
         models_options = {"metadata_file_name" : args.metadata_file_name}
         batch_generators.extend(
-            processors.BatchGenerator(models.model(model_name, **models_options),
+            processors.BatchGenerator(
+                models.model(model_name, **models_options),
                 _format, batch_size, ratio)
             for _ in range(instances))
 
