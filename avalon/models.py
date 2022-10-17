@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from copy import deepcopy
 import time
 import datetime
 import random
@@ -104,8 +105,18 @@ class RFlowModel(BaseModel):
                 for g in re_groups:
                     self.__class__.metadata_list.append(g)
 
+    def _metadata_creator(self, bytes):
+        metadata_count = random.randint(0, len(self.__class__.metadata_list))
+        sample_metadata = random.sample(
+            list(range(len(self.__class__.metadata_list))), metadata_count)
+        flow_metadata = {}
+        for i in sample_metadata:
+            flow_metadata[self.__class__.metadata_list[i]] = bytes
+        return flow_metadata
+
+
     def _updatePendding(self, flow_id):
-        curr_rflow = self._pendding_rflows[flow_id]
+        curr_rflow: dict = self._pendding_rflows[flow_id]
         curr_rflow["last_byte_ts"] += datetime.timedelta(
                 0, random.randint(0, 0xfff), random.randint(0, 0xfff))
         new_no_packet_send = random.randint(0, 0xffffff)  # 3 byte
@@ -121,7 +132,13 @@ class RFlowModel(BaseModel):
             curr_rflow["flow_terminated"] = True
             self._pendding_rflows.pop(flow_id)
 
-        return curr_rflow
+        # just add metadata to copy of existing rflow (or terminated rflow
+        #  which will be removed at the end of this function 
+        copy_curr_rflow = curr_rflow \
+            if curr_rflow["flow_terminated"] else deepcopy(curr_rflow)
+        copy_curr_rflow.update(self._metadata_creator("some new dummy bytes"))
+
+        return copy_curr_rflow
 
     def _newRflow(self):
         # Identifications
@@ -168,14 +185,6 @@ class RFlowModel(BaseModel):
         # flow termination
         flow_terminated = (random.randint(0, 3) != 3) or \
             (len(self._pendding_rflows) >= self.__class__.max_allowed_pendding)
-
-        # flow metadata
-        metadata_count = random.randint(0, len(self.__class__.metadata_list))
-        sample_metadata = random.sample(
-            list(range(len(self.__class__.metadata_list))), metadata_count)
-        flow_metadata = {}
-        for i in sample_metadata:
-            flow_metadata[self.__class__.metadata_list[i]] = "some dummy bytes"
         
         rflow_dict = {
             "flow_id":flow_id, "session_id":session_id,
@@ -191,10 +200,12 @@ class RFlowModel(BaseModel):
             "protocol_data_send":protocol_data_send,
             "protocol_data_recv":protocol_data_recv,
             }
-        rflow_dict.update(flow_metadata)
-
+        
         if not flow_terminated:
-            self._pendding_rflows.append(rflow_dict)
+            self._pendding_rflows.append(deepcopy(rflow_dict))
+
+        # flow meta data
+        rflow_dict.update(self._metadata_creator("some dummy bytes"))
 
         return rflow_dict
 
