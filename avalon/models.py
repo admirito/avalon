@@ -98,12 +98,10 @@ class RFlowModel(BaseModel):
         self._pendding_rflows = []
 
         if self.__class__.metadata_list is None:
-            self.__class__.metadata_list = list()
             with open(options["metadata_file_name"], 'r') as f:
                 tmp_str = f.read()
-                re_groups = re.findall(r'"(\S+)"', tmp_str)
-                for g in re_groups:
-                    self.__class__.metadata_list.append(g)
+                self.__class__.metadata_list = re.findall(r'"(\S+)"', tmp_str)
+               
 
     def _metadata_creator(self, bytes):
         metadata_count = random.randint(0, len(self.__class__.metadata_list))
