@@ -113,8 +113,8 @@ class RFlowModel(BaseModel):
         return flow_metadata
 
 
-    def _updatePendding(self, flow_id):
-        curr_rflow: dict = self._pendding_rflows[flow_id]
+    def _updatePendding(self, flow_index):
+        curr_rflow: dict = self._pendding_rflows[flow_index]
         curr_rflow["last_byte_ts"] += datetime.timedelta(
                 0, random.randint(0, 0xfff), random.randint(0, 0xfff))
         new_no_packet_send = random.randint(0, 0xffffff)  # 3 byte
@@ -127,13 +127,13 @@ class RFlowModel(BaseModel):
             new_no_packet_recv * random.randint(1400, 1550))
 
         if random.randint(0, 3) == 3:
-            curr_rflow["flow_terminated"] = True
-            self._pendding_rflows.pop(flow_id)
+            curr_rflow["is_terminated"] = True
+            self._pendding_rflows.pop(flow_index)
 
         # just add metadata to copy of existing rflow (or terminated rflow
         #  which will be removed at the end of this function 
         copy_curr_rflow = curr_rflow \
-            if curr_rflow["flow_terminated"] else deepcopy(curr_rflow)
+            if curr_rflow["is_terminated"] else deepcopy(curr_rflow)
         copy_curr_rflow.update(self._metadata_creator("some new dummy bytes"))
 
         return copy_curr_rflow
@@ -145,6 +145,7 @@ class RFlowModel(BaseModel):
             (self.curr_flow_id + 1) if self.curr_flow_id < 0xffffffff else 0
         sensor_id = self._id
         session_id = random.randint(0, self._sesstion_count -1)
+        user_id = random.randint(0, 500)
 
         # Flow Key
         src_ip = socket.inet_ntoa(
@@ -186,18 +187,18 @@ class RFlowModel(BaseModel):
             (len(self._pendding_rflows) >= self.__class__.max_allowed_pendding)
         
         rflow_dict = {
-            "flow_id":flow_id, "id_session":session_id,
-            "src_ip":src_ip, "src_port":src_port,
-            "dst_ip":dst_ip, "dst_port":dst_port, 
-            "l4_protocol":l4_protocol, "l7_protocol":l7_protocol,
-            "input_if_id":input_if_id, "output_if_id":output_if_id,
+            "flow_id":flow_id, "id_session":session_id, "user_id":user_id,
+            "srcip":src_ip, "srcport":src_port,
+            "destip":dst_ip, "destport":dst_port, 
+            "protocol_l4":l4_protocol, "protocol_l7":l7_protocol,
+            "input_if":input_if_id, "output_if":output_if_id,
             "first_byte_ts":first_byte_ts,
             "last_byte_ts":last_byte_ts,
             "packet_no_send":packet_no_send, "packet_no_recv":packet_no_recv,
             "volume_send":volume_send, "volume_recv":volume_recv,
-            "sensor_id":sensor_id, "flow_terminated":flow_terminated,
-            "protocol_data_send":protocol_data_send,
-            "protocol_data_recv":protocol_data_recv,
+            "sensor_id":sensor_id, "is_terminated":flow_terminated,
+            "proto_flags_send":protocol_data_send,
+            "proto_flags_recv":protocol_data_recv,
             }
         
         if not flow_terminated:
