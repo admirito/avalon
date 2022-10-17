@@ -91,7 +91,7 @@ class RFlowModel(BaseModel):
         self.__class__._id_counter += 1
         self._id = self.__class__._id_counter
 
-        self._sesstion_count = random.randint(0, 0xf)
+        self._session_count = random.randint(1, 0xf)
 
         self.curr_flow_id = 0
 
@@ -144,7 +144,7 @@ class RFlowModel(BaseModel):
         self.curr_flow_id = \
             (self.curr_flow_id + 1) if self.curr_flow_id < 0xffffffff else 0
         sensor_id = self._id
-        session_id = random.randint(0, self._sesstion_count -1)
+        session_id = random.randint(0, self._session_count -1)
         user_id = random.randint(0, 500)
 
         # Flow Key
