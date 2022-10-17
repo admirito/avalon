@@ -143,7 +143,8 @@ class RFlowModel(BaseModel):
     def _newRflow(self):
         # Identifications
         flow_id = self.curr_flow_id
-        self.curr_flow_id += 1 
+        self.curr_flow_id = \
+            (self.curr_flow_id + 1) if self.curr_flow_id < 0xffffffff else 0
         sensor_id = self._id
         session_id = random.randint(0, self._sesstion_count -1)
 
@@ -187,7 +188,7 @@ class RFlowModel(BaseModel):
             (len(self._pendding_rflows) >= self.__class__.max_allowed_pendding)
         
         rflow_dict = {
-            "flow_id":flow_id, "session_id":session_id,
+            "flow_id":flow_id, "id_session":session_id,
             "src_ip":src_ip, "src_port":src_port,
             "dst_ip":dst_ip, "dst_port":dst_port, 
             "l4_protocol":l4_protocol, "l7_protocol":l7_protocol,
