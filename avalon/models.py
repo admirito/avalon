@@ -162,8 +162,8 @@ class RFlowModel(BaseModel):
         l7_protocol = random.randint(0, 2988)
 
         # interfaces
-        input_if_id = random.randint(-1, 0xffffffff)   # 4 byte
-        output_if_id = random.randint(-1, 0xffffffff)  # 4 byte
+        input_if_id = random.randint(-1, 0xffff)   # 2 byte
+        output_if_id = random.randint(-1, 0xffff)  # 2 byte
 
         # timestamps
         first_byte_ts = datetime.datetime.now()
@@ -172,8 +172,8 @@ class RFlowModel(BaseModel):
                 0, random.randint(0, 0xfff), random.randint(0, 0xfff))
 
         # packet stats
-        packet_no_send = random.randint(0, 0xffffffffffff)  # 6 byte
-        packet_no_recv = random.randint(0, 0xffffffffffff)  # 6 byte
+        packet_no_send = random.randint(0, 0xffffff)  # 3 byte
+        packet_no_recv = random.randint(0, 0xffffff)  # 3 byte
 
         # total transmitted volume
         # packet count * random avg packet size
