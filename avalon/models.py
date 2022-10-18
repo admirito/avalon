@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import base64
 from copy import deepcopy
 import time
 import datetime
@@ -88,8 +89,8 @@ class RFlowModel(BaseModel):
     def __init__(self, **options):
         super().__init__(**options)
 
-        self.__class__._id_counter += 1
         self._id = self.__class__._id_counter
+        self.__class__._id_counter += 1
 
         self._session_count = random.randint(1, 0xf)
 
@@ -134,7 +135,8 @@ class RFlowModel(BaseModel):
         #  which will be removed at the end of this function 
         copy_curr_rflow = curr_rflow \
             if curr_rflow["is_terminated"] else deepcopy(curr_rflow)
-        copy_curr_rflow.update(self._metadata_creator("some new dummy bytes"))
+        copy_curr_rflow["metadata"] = self._metadata_creator(
+            base64.b64encode("some new dummy bytes".encode()).decode())
 
         return copy_curr_rflow
 
@@ -199,13 +201,14 @@ class RFlowModel(BaseModel):
             "sensor_id":sensor_id, "is_terminated":flow_terminated,
             "proto_flags_send":protocol_data_send,
             "proto_flags_recv":protocol_data_recv,
-            }
+            "metadata":{}}
         
         if not flow_terminated:
             self._pendding_rflows.append(deepcopy(rflow_dict))
 
         # flow meta data
-        rflow_dict.update(self._metadata_creator("some dummy bytes"))
+        rflow_dict["metadata"] = self._metadata_creator(
+            base64.b64encode("some dummy bytes".encode()).decode())
 
         return rflow_dict
 

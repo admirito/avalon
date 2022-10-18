@@ -61,7 +61,7 @@ class JsonLinesFormat(LineBaseFormat):
     Serialize data by generating a JSON Object per line.
     """
     def _to_line(self, item):
-        return json.dumps(item)
+        return json.dumps(item, default=str)
 
 
 class CSVFormat(LineBaseFormat):
