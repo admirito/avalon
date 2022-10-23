@@ -12,18 +12,18 @@ import re
 from data import RFlow_params
 
 
-def ChooseInNormalDistribution(l: list, exclude=[], mean=None, stddev=None):
+def ChooseInNormalDistribution(min=0, max=0, exclude=[], mean=None, stddev=None):
     if mean is None:
         # set mean to center of the list
-        mean = (len(l) - 1) / 2
+        mean = (max - min) / 2
 
     if stddev is None:
-        stddev = len(l) / 6
+        stddev = (max - min + 1) / 6
 
     while True:
-        index = int(random.normalvariate(mean, stddev) + 0.5)
-        if 0 <= index < len(l) and l[index] not in exclude:
-            return l[index]
+        val = int(random.normalvariate(mean, stddev) + 0.5)
+        if min <= val < max and val not in exclude:
+            return val
 
 
 class Models:
@@ -169,15 +169,17 @@ class RFlowModel(BaseModel):
         user_id = random.randint(0, 500)
 
         # Flow Key
-        src_ip = ChooseInNormalDistribution(RFlow_params.ip_list)
-        src_port = ChooseInNormalDistribution(RFlow_params.port_list)
-        dst_ip = ChooseInNormalDistribution(RFlow_params.ip_list, [src_ip])
-        dst_port = ChooseInNormalDistribution(
-            RFlow_params.port_list, exclude=[src_port])
+        int_ip = ChooseInNormalDistribution(*RFlow_params.ip_range)
+        src_ip = socket.inet_ntoa(struct.pack('>I', int_ip))
+        src_port = ChooseInNormalDistribution(*RFlow_params.port_range)
+        dst_ip = ChooseInNormalDistribution(*RFlow_params.ip_range, [int_ip])
+        dst_port = socket.inet_ntoa(struct.pack(
+            '>I', ChooseInNormalDistribution(
+                *RFlow_params.ip_range, exclude=[src_port])))
 
         # Protocols
-        l4_protocol = ChooseInNormalDistribution(RFlow_params.l4_list)
-        l7_protocol = ChooseInNormalDistribution(RFlow_params.l7_list)
+        l4_protocol = ChooseInNormalDistribution(*RFlow_params.l4_range)
+        l7_protocol = ChooseInNormalDistribution(*RFlow_params.l7_range)
 
         # interfaces
         input_if_id = random.randint(-1, 0xffff)   # 2 byte
