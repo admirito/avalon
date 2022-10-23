@@ -9,6 +9,22 @@ import socket
 import struct
 import re
 
+from data import RFlow_params
+
+
+def ChooseInNormalDistribution(l: list, exclude=[], mean=None, stddev=None):
+    if mean is None:
+        # set mean to center of the list
+        mean = (len(l) - 1) / 2
+
+    if stddev is None:
+        stddev = len(l) / 6
+
+    while True:
+        index = int(random.normalvariate(mean, stddev) + 0.5)
+        if 0 <= index < len(l) and l[index] not in exclude:
+            return l[index]
+
 
 class Models:
     """
@@ -116,8 +132,11 @@ class RFlowModel(BaseModel):
 
     def _updatePendding(self, flow_index):
         curr_rflow: dict = self._pendding_rflows[flow_index]
-        curr_rflow["last_byte_ts"] += datetime.timedelta(
-                0, random.randint(0, 0xfff), random.randint(0, 0xfff))
+        curr_rflow["last_byte_ts"] = max(
+            curr_rflow["last_byte_ts"],
+            datetime.datetime.now() 
+                - datetime.timedelta(
+                    microseconds=random.randint(0, 90000))) # 1.5 minutes
         new_no_packet_send = random.randint(0, 0xffffff)  # 3 byte
         new_no_packet_recv = random.randint(0, 0xffffff)  # 3 byte
         curr_rflow["packet_no_send"] += new_no_packet_send
@@ -150,26 +169,26 @@ class RFlowModel(BaseModel):
         user_id = random.randint(0, 500)
 
         # Flow Key
-        src_ip = socket.inet_ntoa(
-            struct.pack('>I', random.randint(1, 0xffffffff)))
-        src_port = random.randint(0, 0xffff)
-        dst_ip = socket.inet_ntoa(
-            struct.pack('>I', random.randint(1, 0xffffffff)))
-        dst_port = random.randint(0, 0xffff)
+        src_ip = ChooseInNormalDistribution(RFlow_params.ip_list)
+        src_port = ChooseInNormalDistribution(RFlow_params.port_list)
+        dst_ip = ChooseInNormalDistribution(RFlow_params.ip_list, [src_ip])
+        dst_port = ChooseInNormalDistribution(
+            RFlow_params.port_list, exclude=[src_port])
 
         # Protocols
-        l4_protocol = random.randint(0, 142)
-        l7_protocol = random.randint(0, 2988)
+        l4_protocol = ChooseInNormalDistribution(RFlow_params.l4_list)
+        l7_protocol = ChooseInNormalDistribution(RFlow_params.l7_list)
 
         # interfaces
         input_if_id = random.randint(-1, 0xffff)   # 2 byte
         output_if_id = random.randint(-1, 0xffff)  # 2 byte
 
         # timestamps
-        first_byte_ts = datetime.datetime.now()
+        first_byte_ts = datetime.datetime.now() - datetime.timedelta(
+            milliseconds=random.randint(0, 120000)) # two minutes
         last_byte_ts = first_byte_ts \
             + datetime.timedelta(
-                0, random.randint(0, 0xfff), random.randint(0, 0xfff))
+                0, random.randint(0, 0x1fff), random.randint(0, 0x1fff))
 
         # packet stats
         packet_no_send = random.randint(0, 0xffffff)  # 3 byte
