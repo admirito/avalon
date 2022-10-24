@@ -13,7 +13,7 @@ from data import RFlow_params
 
 
 def ChooseInNormalDistribution(min=0, max=0, exclude=[],
-                                mean=None, stddev=600000):
+                                mean=None, stddev=None):
     if mean is None:
         # set mean to center of the list
         mean = (max - min) / 2
@@ -25,6 +25,10 @@ def ChooseInNormalDistribution(min=0, max=0, exclude=[],
         val = int(random.normalvariate(mean, stddev) + 0.5)
         if min <= val < max and val not in exclude:
             return val
+
+
+def Decision(prob: float):
+    return random.random() < prob
 
 
 class Models:
@@ -121,13 +125,23 @@ class RFlowModel(BaseModel):
                 self.__class__.metadata_list = re.findall(r'"(\S+)"', tmp_str)
                
 
-    def _metadata_creator(self, bytes):
+    def _metadata_creator(self):
         metadata_count = random.randint(0, len(self.__class__.metadata_list))
         sample_metadata = random.sample(
             list(range(len(self.__class__.metadata_list))), metadata_count)
         flow_metadata = {}
         for i in sample_metadata:
-            flow_metadata[self.__class__.metadata_list[i]] = bytes
+            if RFlow_params.metadata_values.get(
+                self.__class__.metadata_list[i]):
+                    vals = RFlow_params.metadata_values[
+                        self.__class__.metadata_list[i]
+                        ]
+            else :
+                vals = RFlow_params.default_metadata_values
+            flow_metadata[self.__class__.metadata_list[i]] = \
+                base64.b64encode(vals[ChooseInNormalDistribution(
+                    max=len(vals)-1, stddev=RFlow_params.metadata_values_stddev)
+                ].encode()).decode()
         return flow_metadata
 
 
@@ -147,7 +161,7 @@ class RFlowModel(BaseModel):
         curr_rflow["volume_recv"] += (
             new_no_packet_recv * random.randint(1400, 1550))
 
-        if random.randint(0, 3) == 3:
+        if not Decision(RFlow_params.continuous_flow_prob):
             curr_rflow["is_terminated"] = True
             self._pendding_rflows.pop(flow_index)
 
@@ -155,8 +169,7 @@ class RFlowModel(BaseModel):
         #  which will be removed at the end of this function 
         copy_curr_rflow = curr_rflow \
             if curr_rflow["is_terminated"] else deepcopy(curr_rflow)
-        copy_curr_rflow["metadata"] = self._metadata_creator(
-            base64.b64encode("some new dummy bytes".encode()).decode())
+        copy_curr_rflow["metadata"] = self._metadata_creator()
 
         return copy_curr_rflow
 
@@ -213,7 +226,7 @@ class RFlowModel(BaseModel):
         protocol_data_recv = random.randint(0, 1)
 
         # flow termination
-        flow_terminated = (random.randint(0, 3) != 3) or \
+        flow_terminated = (not Decision(RFlow_params.continuous_flow_prob)) or \
             (len(self._pendding_rflows) >= self.__class__.max_allowed_pendding)
         
         rflow_dict = {
@@ -235,8 +248,7 @@ class RFlowModel(BaseModel):
             self._pendding_rflows.append(deepcopy(rflow_dict))
 
         # flow meta data
-        rflow_dict["metadata"] = self._metadata_creator(
-            base64.b64encode("some dummy bytes".encode()).decode())
+        rflow_dict["metadata"] = self._metadata_creator()
 
         return rflow_dict
 
