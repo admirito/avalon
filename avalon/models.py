@@ -12,7 +12,8 @@ import re
 from data import RFlow_params
 
 
-def ChooseInNormalDistribution(min=0, max=0, exclude=[], mean=None, stddev=None):
+def ChooseInNormalDistribution(min=0, max=0, exclude=[],
+                                mean=None, stddev=600000):
     if mean is None:
         # set mean to center of the list
         mean = (max - min) / 2
@@ -169,17 +170,23 @@ class RFlowModel(BaseModel):
         user_id = random.randint(0, 500)
 
         # Flow Key
-        int_ip = ChooseInNormalDistribution(*RFlow_params.ip_range)
+        int_ip = ChooseInNormalDistribution(
+            *RFlow_params.ip_range, stddev=RFlow_params.ip_norm_stddev)
         src_ip = socket.inet_ntoa(struct.pack('>I', int_ip))
-        src_port = ChooseInNormalDistribution(*RFlow_params.port_range)
-        dst_ip = ChooseInNormalDistribution(*RFlow_params.ip_range, [int_ip])
-        dst_port = socket.inet_ntoa(struct.pack(
+        src_port = ChooseInNormalDistribution(
+            *RFlow_params.port_range, stddev=RFlow_params.port_norm_stddev)
+        dst_ip = socket.inet_ntoa(struct.pack(
             '>I', ChooseInNormalDistribution(
-                *RFlow_params.ip_range, exclude=[src_port])))
+                *RFlow_params.ip_range, exclude=[int_ip],
+                    stddev= RFlow_params.ip_norm_stddev)))
+        dst_port = ChooseInNormalDistribution(
+            *RFlow_params.port_range, stddev=RFlow_params.port_norm_stddev)
 
         # Protocols
-        l4_protocol = ChooseInNormalDistribution(*RFlow_params.l4_range)
-        l7_protocol = ChooseInNormalDistribution(*RFlow_params.l7_range)
+        l4_protocol = ChooseInNormalDistribution(
+            *RFlow_params.l4_range, stddev=RFlow_params.l4_norm_stddev)
+        l7_protocol = ChooseInNormalDistribution(
+            *RFlow_params.l7_range, stddev=RFlow_params.l7_norm_stddev)
 
         # interfaces
         input_if_id = random.randint(-1, 0xffff)   # 2 byte
