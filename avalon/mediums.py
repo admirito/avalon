@@ -46,20 +46,32 @@ class FileMedia(BaseMedia):
 
 
 class DirectoryMedia(BaseMedia):
+    """
+    Initialize keyword options:
+     - `directory`: a path to the target directory
+     - `suffix`: files suffix
+
+    Create a new file with specified suffix in directory
+    with each call to _write()
+    """
     def __init__(self,  max_writers, **options):
         super().__init__(max_writers, **options)
 
         self._index = multiprocessing.Value("l")
     
     def _write(self, batch):
+        """
+        Creates a new file with specified suffix and write the batch to it
+        
+        @param batch is data should be written to the file
+        """
         with self._index:
-            curr_file = os.path.join(self._options["directory"],
-                str(self._index.value) 
-                + ('.' if self._options["suffix"][0] != '.' else '')
-                + self._options["suffix"])
+            curr_file = os.path.join(
+                self._options["directory"],
+                str(self._index.value) + self._options["suffix"])
             self._index.value += 1
        
-        with open(curr_file, 'w') as f:
+        with open(curr_file, "w") as f:
             f.write(batch)
         
 

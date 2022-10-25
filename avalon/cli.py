@@ -5,11 +5,11 @@ from ast import arg
 import re
 import sys
 
-from __init__ import __version__
-import formats
-import mediums
-import models
-import processors
+from . import __version__
+from . import formats
+from . import mediums
+from . import models
+from . import processors
 
 
 def main():
