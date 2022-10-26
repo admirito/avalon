@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import multiprocessing
+from multiprocessing.sharedctypes import Value
 from multiprocessing.util import is_exiting
 import socket
 from socket import socket
@@ -50,6 +51,7 @@ class DirectoryMedia(BaseMedia):
     Initialize keyword options:
      - `directory`: a path to the target directory
      - `suffix`: files suffix
+     - `max_file_count`: maximum allowed file count
 
     Create a new file with specified suffix in directory
     with each call to _write()
@@ -58,19 +60,33 @@ class DirectoryMedia(BaseMedia):
         super().__init__(max_writers, **options)
 
         self._index = multiprocessing.Value("l")
+        self._oldest_index = multiprocessing.Value("l")
     
     def _write(self, batch):
         """
-        Creates a new file with specified suffix and write the batch to it
+        Creates a new file with specified suffix and write the batch to it, if 
+        count of directory's files exceed from the specified value 
+        this function removes the oldest file and the create it 
         
         @param batch is data should be written to the file
         """
-        with self._index:
+        with self._index, self._oldest_index:
             curr_file = os.path.join(
                 self._options["directory"],
                 str(self._index.value) + self._options["suffix"])
             self._index.value += 1
-       
+
+            if self._options["max_file_count"]:
+                if (self._index.value - self._oldest_index.value > \
+                        self._options["max_file_count"]):
+                    oldest_file = os.path.join(
+                        self._options["directory"],
+                        str(self._oldest_index.value) 
+                            + self._options["suffix"])
+                    with open(oldest_file, "w") as f:
+                        f.truncate(0)
+                    self._oldest_index.value += 1 
+                               
         with open(curr_file, "w") as f:
             f.write(batch)
         

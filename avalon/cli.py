@@ -66,6 +66,11 @@ def main():
         help="Used with directory media, \
             determines the directory relative name.")
     parser.add_argument(
+        "--max-files", metavar="<N>", type=int, dest="max_file_count",
+        default=0,
+        help="used with directory media, determines maximum file \
+            count in directory, old files will be truncated to zero.")
+    parser.add_argument(
         "--suffix", metavar="<suffix>", type=str, dest="suffix",
         help="used with directory media, determines output files' suffix.")
     parser.add_argument(
@@ -138,7 +143,8 @@ def main():
         media = mediums.DirectoryMedia(
             max_writers=args.output_writers,
             directory=args.dir_path,
-            suffix=args.suffix
+            suffix=args.suffix,
+            max_file_count=args.max_file_count
         )
 
     processor = processors.Processor(batch_generators, media, args.rate,
