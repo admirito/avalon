@@ -78,13 +78,16 @@ class DirectoryMedia(BaseMedia):
 
             if self._options["max_file_count"]:
                 if (self._index.value - self._oldest_index.value > \
-                        self._options["max_file_count"]):
+                        abs(self._options["max_file_count"])):
                     oldest_file = os.path.join(
                         self._options["directory"],
                         str(self._oldest_index.value) 
                             + self._options["suffix"])
-                    with open(oldest_file, "w") as f:
-                        f.truncate(0)
+                    if self._options["max_file_count"] > 0:
+                        with open(oldest_file, "w") as f:
+                            f.truncate(0)
+                    else:
+                        os.remove(oldest_file)
                     self._oldest_index.value += 1 
                                
         with open(curr_file, "w") as f:

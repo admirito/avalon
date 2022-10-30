@@ -245,11 +245,14 @@ class RFlowModel(BaseModel):
         output_if_id = random.randint(-1, 0xffff)  # 2 byte
 
         # timestamps
-        first_byte_ts = datetime.datetime.now() - datetime.timedelta(
+        now = datetime.datetime.now()
+        first_byte_ts = now - datetime.timedelta(
             milliseconds=random.randint(0, 120000)) # two minutes
-        last_byte_ts = first_byte_ts \
-            + datetime.timedelta(
-                0, random.randint(0, 0x1fff), random.randint(0, 0x1fff))
+        last_byte_ts = min(
+            now,
+            first_byte_ts \
+                + datetime.timedelta(milliseconds=random.randint(0, 120000))
+        )
 
         # packet stats
         packet_no_send = random.randint(0, 0xffffff)  # 3 byte

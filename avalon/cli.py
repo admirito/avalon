@@ -69,7 +69,8 @@ def main():
         "--max-files", metavar="<N>", type=int, dest="max_file_count",
         default=0,
         help="used with directory media, determines maximum file \
-            count in directory, old files will be truncated to zero.")
+            count in directory, old files will be truncated to zero \
+            (or remove if value is negative).")
     parser.add_argument(
         "--suffix", metavar="<suffix>", type=str, dest="suffix",
         help="used with directory media, determines output files' suffix.")
