@@ -66,6 +66,20 @@ def main():
         help="Used with directory media, \
             determines the directory relative name.")
     parser.add_argument(
+        "--tmp-dir-name", metavar="<dir>", type=str, dest="tmp_dir_path",
+        help="Used with directory media, \
+            activate tmp directory and determines the directory relative name.\
+             files are created in this first and then moved (renamed) to the \
+            destination directory. this directory and the main directory \
+            specified with '--dir-name' should be in same mount point \
+            to avoid copy and extra write operation.")
+    parser.add_argument(
+        "--blocking-max-files", action='store_true', 
+        dest="dir_blocking_enable",
+        help="Used with directory media, \
+            blocks avalon when directory file count bigger than '--max-files' \
+            and wait until some files be deleted by an exteral entity.")
+    parser.add_argument(
         "--max-files", metavar="<N>", type=int, dest="max_file_count",
         default=0,
         help="used with directory media, determines maximum file \
@@ -145,7 +159,9 @@ def main():
             max_writers=args.output_writers,
             directory=args.dir_path,
             suffix=args.suffix,
-            max_file_count=args.max_file_count
+            max_file_count=args.max_file_count,
+            tmp_dir_path=args.tmp_dir_path,
+            dir_blocking_enable=args.dir_blocking_enable
         )
 
     processor = processors.Processor(batch_generators, media, args.rate,

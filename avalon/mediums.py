@@ -3,9 +3,8 @@
 import multiprocessing
 from multiprocessing.sharedctypes import Value
 from multiprocessing.util import is_exiting
-import socket
+import inotify.adapters
 from socket import socket
-import sys
 import os
 import zlib
 import requests
@@ -61,6 +60,8 @@ class DirectoryMedia(BaseMedia):
 
         self._index = multiprocessing.Value("l")
         self._oldest_index = multiprocessing.Value("l")
+        self.notifier = inotify.adapters.Inotify()
+        self.notifier.add_watch(self._options["directory"])
     
     def _write(self, batch):
         """
@@ -77,19 +78,29 @@ class DirectoryMedia(BaseMedia):
             self._index.value += 1
 
             if self._options["max_file_count"]:
-                if (self._index.value - self._oldest_index.value > \
+                if not self._options["dir_blocking_enable"]:
+                    if (self._index.value - self._oldest_index.value > \
                         abs(self._options["max_file_count"])):
-                    oldest_file = os.path.join(
-                        self._options["directory"],
-                        str(self._oldest_index.value) 
-                            + self._options["suffix"])
-                    if self._options["max_file_count"] > 0:
-                        with open(oldest_file, "w") as f:
-                            f.truncate(0)
-                    else:
-                        os.remove(oldest_file)
-                    self._oldest_index.value += 1 
-                               
+                    
+                        oldest_file = os.path.join(
+                            self._options["directory"],
+                            str(self._oldest_index.value) 
+                                + self._options["suffix"])
+                        if self._options["max_file_count"] > 0:
+                            with open(oldest_file, "w") as f:
+                                f.truncate(0)
+                        else:
+                            os.remove(oldest_file)
+                        self._oldest_index.value += 1
+                else:
+                    if (len(os.listdir(self._options["directory"])) >= \
+                        self._options["max_file_count"]):
+                        freed_files = 0
+                        for event in \
+                            self.notifier.event_gen(
+                                yield_nones=True, timeout_s=0.2):
+                            (_, type_name, _, file_name) = event
+
         with open(curr_file, "w") as f:
             f.write(batch)
         
