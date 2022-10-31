@@ -47,6 +47,12 @@ def decision(prob: float):
     return random.random() < prob
 
 
+def random_epsilon():
+    """
+    Generates a random delta datetime between 0 and 1 second
+    """
+    return datetime.timedelta(milliseconds=random.randint(0, 1000))
+
 class Models:
     """
     An abstraction for keeping a list of available models.
@@ -182,10 +188,10 @@ class RFlowModel(BaseModel):
         """
         curr_rflow: dict = self._pendding_rflows[flow_index]
         curr_rflow["last_byte_ts"] = max(
-            curr_rflow["last_byte_ts"],
+            curr_rflow["last_byte_ts"] + random_epsilon(),
             datetime.datetime.now() 
                 - datetime.timedelta(
-                    microseconds=random.randint(0, 90000))) # 1.5 minutes
+                    milliseconds=random.randint(0, 90000))) # 1.5 minutes
         new_no_packet_send = random.randint(0, 0xffffff)  # 3 byte
         new_no_packet_recv = random.randint(0, 0xffffff)  # 3 byte
         curr_rflow["packet_no_send"] += new_no_packet_send
