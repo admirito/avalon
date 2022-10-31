@@ -51,7 +51,7 @@ def random_epsilon():
     """
     Generates a random delta datetime between 0 and 1 second
     """
-    return datetime.timedelta(milliseconds=random.randint(0, 1000))
+    return datetime.timedelta(milliseconds=random.randint(1, 1000))
 
 class Models:
     """
