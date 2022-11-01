@@ -72,9 +72,7 @@ class DirectoryMedia(BaseMedia):
         @param batch is data should be written to the file
         """
         with self._index, self._oldest_index:
-            curr_file = os.path.join(
-                self._options["directory"],
-                str(self._index.value) + self._options["suffix"])
+            curr_file_name = str(self._index.value) + self._options["suffix"]
             self._index.value += 1
 
             if self._options["max_file_count"]:
@@ -82,15 +80,15 @@ class DirectoryMedia(BaseMedia):
                     if (self._index.value - self._oldest_index.value > \
                         abs(self._options["max_file_count"])):
                     
-                        oldest_file = os.path.join(
+                        oldest_file_path = os.path.join(
                             self._options["directory"],
                             str(self._oldest_index.value) 
                                 + self._options["suffix"])
                         if self._options["max_file_count"] > 0:
-                            with open(oldest_file, "w") as f:
+                            with open(oldest_file_path, "w") as f:
                                 f.truncate(0)
                         else:
-                            os.remove(oldest_file)
+                            os.remove(oldest_file_path)
                         self._oldest_index.value += 1
                 else:
                     if (len(os.listdir(self._options["directory"])) >= \
@@ -110,9 +108,22 @@ class DirectoryMedia(BaseMedia):
 
             # TODO: if we want to be ensure that count of directory files never
             # exceed from 'max-files' we should open the file in previous lock 
-            # and write in and close it here, but do we really need this? 
-            with open(curr_file, "w") as f:
-                f.write(batch)
+            # and write in and close it here, but do we really need this?
+            if self._options["tmp_dir_path"]:
+                curr_file_path = os.path.join(
+                        self._options["tmp_dir_path"], curr_file_name) 
+                with open(curr_file_path, "w") as f:
+                    f.write(batch)
+                    os.rename(
+                        curr_file_path,
+                        os.path.join(
+                            self._options["directory"], curr_file_name))
+                    
+            else:
+                with open(
+                    os.path.join(self._options["directory"], curr_file_name), 
+                    "w") as f:
+                    f.write(batch)
         
 
 class SingleHTTPRequest(BaseMedia):
