@@ -4,6 +4,7 @@ import multiprocessing
 from multiprocessing.sharedctypes import Value
 from multiprocessing.util import is_exiting
 import inotify.adapters
+import inotify.constants
 from socket import socket
 import os
 import zlib
@@ -60,8 +61,7 @@ class DirectoryMedia(BaseMedia):
 
         self._index = multiprocessing.Value("l")
         self._oldest_index = multiprocessing.Value("l")
-        self.notifier = inotify.adapters.Inotify()
-        self.notifier.add_watch(self._options["directory"])
+        
     
     def _write(self, batch):
         """
@@ -94,15 +94,25 @@ class DirectoryMedia(BaseMedia):
                         self._oldest_index.value += 1
                 else:
                     if (len(os.listdir(self._options["directory"])) >= \
-                        self._options["max_file_count"]):
-                        freed_files = 0
-                        for event in \
-                            self.notifier.event_gen(
-                                yield_nones=True, timeout_s=0.2):
-                            (_, type_name, _, file_name) = event
+                        abs(self._options["max_file_count"])):
+                        self.notifier = inotify.adapters.Inotify()
+                        watch_id = self.notifier.add_watch(
+                            self._options["directory"], 
+                            inotify.constants.IN_DELETE
+                                | inotify.constants.IN_DELETE_SELF)
+                        
+                        # this extra 'if' checks if any file have been deleted
+                        # during construction of inotify object. this will 
+                        # prevent deadlock in some rare cases. 
+                        if (len(os.listdir(self._options["directory"])) >= \
+                            abs(self._options["max_file_count"])):
+                            next(self.notifier.event_gen(yield_nones=False))
 
-        with open(curr_file, "w") as f:
-            f.write(batch)
+            # TODO: if we want to be ensure that count of directory files never
+            # exceed from 'max-files' we should open the file in previous lock 
+            # and write in and close it here, but do we really need this? 
+            with open(curr_file, "w") as f:
+                f.write(batch)
         
 
 class SingleHTTPRequest(BaseMedia):
