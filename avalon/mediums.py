@@ -106,24 +106,23 @@ class DirectoryMedia(BaseMedia):
                             abs(self._options["max_file_count"])):
                             next(self.notifier.event_gen(yield_nones=False))
 
-            # TODO: if we want to be ensure that count of directory files never
-            # exceed from 'max-files' we should open the file in previous lock 
-            # and write in and close it here, but do we really need this?
-            if self._options["tmp_dir_path"]:
-                curr_file_path = os.path.join(
-                        self._options["tmp_dir_path"], curr_file_name) 
-                with open(curr_file_path, "w") as f:
-                    f.write(batch)
-                    os.rename(
-                        curr_file_path,
-                        os.path.join(
-                            self._options["directory"], curr_file_name))
-                    
-            else:
-                with open(
-                    os.path.join(self._options["directory"], curr_file_name), 
-                    "w") as f:
-                    f.write(batch)
+        # TODO: if we want to be ensure that count of directory files never
+        # exceed from 'max-files' we should open the file in previous lock 
+        # and write in and close it here, but do we really need this?
+        if self._options["tmp_dir_path"]:
+            curr_file_path = os.path.join(
+                    self._options["tmp_dir_path"], curr_file_name) 
+            with open(curr_file_path, "w") as f:
+                f.write(batch)
+                os.rename(
+                    curr_file_path,
+                    os.path.join(
+                        self._options["directory"], curr_file_name))  
+        else:
+            with open(
+                os.path.join(self._options["directory"], curr_file_name), 
+                "w") as f:
+                f.write(batch)
         
 
 class SingleHTTPRequest(BaseMedia):
