@@ -84,7 +84,16 @@ def main():
         default=0,
         help="used with directory media, determines maximum file \
             count in directory, old files will be truncated to zero \
-            (or remove if value is negative).")
+            (or remove if value is negative). this value in not accurate and \
+            max count of directory files \
+            can be in range [<N>, <N> + instances_count - 1]")
+    parser.add_argument(
+        "--ordered-name", action='store_true', dest="ordered_mode",
+        help="used with directory media, choose name using global \
+            index (between avalon instances) and ensures \
+            file with lower index is older than biger one. this needs some \
+            inter process lock so it has more overhead \
+            in compared with 'unordered mode'")
     parser.add_argument(
         "--suffix", metavar="<suffix>", type=str, dest="suffix",
         help="used with directory media, determines output files' suffix.")
@@ -161,7 +170,9 @@ def main():
             suffix=args.suffix,
             max_file_count=args.max_file_count,
             tmp_dir_path=args.tmp_dir_path,
-            dir_blocking_enable=args.dir_blocking_enable
+            dir_blocking_enable=args.dir_blocking_enable,
+            ordered_mode=args.ordered_mode,
+            instances=instances
         )
 
     processor = processors.Processor(batch_generators, media, args.rate,
