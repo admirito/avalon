@@ -81,10 +81,17 @@ class DirectoryMedia(BaseMedia):
             
             # this extra 'if' checks if any file have been deleted
             # during construction of inotify object. this will 
-            # prevent deadlock in some rare cases. 
-            if (len(os.listdir(self._options["directory"])) >= \
-                abs(self._options["max_file_count"])):
-                next(self.notifier.event_gen(yield_nones=False))
+            # prevent deadlock in some rare cases.
+            exceeded_count = len(os.listdir(self._options["directory"])) - \
+                abs(self._options["max_file_count"]) 
+            if exceeded_count > 0:
+                for event in self.notifier.event_gen(yield_nones=False):
+                    type_names = event[1]
+                    if "IN_ISDIR" not in type_names:
+                        exceeded_count -= 1
+                        if exceeded_count <= 0:
+                            break
+
 
     def _remove_or_truncate(self, raw_file_name):
         oldest_file_path = os.path.join(
