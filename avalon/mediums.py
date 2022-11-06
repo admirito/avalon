@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 
 import multiprocessing
-from multiprocessing.sharedctypes import Value
-from multiprocessing.util import is_exiting
-import inotify.adapters
-import inotify.constants
-from socket import socket
 import os
 import zlib
 import requests
+
+from . import auxiliary
 
 
 class BaseMedia:
@@ -73,25 +70,23 @@ class DirectoryMedia(BaseMedia):
     def _blocking_max_file(self):
         if (len(os.listdir(self._options["directory"])) >= \
             abs(self._options["max_file_count"])):
-            self.notifier = inotify.adapters.Inotify()
-            watch_id = self.notifier.add_watch(
-                self._options["directory"], 
-                inotify.constants.IN_DELETE
-                    | inotify.constants.IN_DELETE_SELF)
-            
-            # this extra 'if' checks if any file have been deleted
-            # during construction of inotify object. this will 
-            # prevent deadlock in some rare cases.
             exceeded_count = len(os.listdir(self._options["directory"])) - \
-                abs(self._options["max_file_count"]) 
-            if exceeded_count > 0:
-                for event in self.notifier.event_gen(yield_nones=False):
-                    type_names = event[1]
-                    if "IN_ISDIR" not in type_names:
-                        exceeded_count -= 1
-                        if exceeded_count <= 0:
-                            break
+                abs(self._options["max_file_count"])
 
+            def _updata_exceed_count(timeout):
+                nonlocal exceeded_count
+                exceeded_count -= 1
+                if not timeout:
+                    return exceeded_count >= 0
+                else:
+                    exceeded_count =  \
+                        len(os.listdir(self._options["directory"])) - \
+                        abs(self._options["max_file_count"])
+                    return exceeded_count >= 0
+
+            notifier = auxiliary.DirectoryNotifier(
+                self._options["directory"], _updata_exceed_count)
+            notifier.wait()
 
     def _remove_or_truncate(self, raw_file_name):
         oldest_file_path = os.path.join(
