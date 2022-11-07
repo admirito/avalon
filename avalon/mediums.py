@@ -68,24 +68,20 @@ class DirectoryMedia(BaseMedia):
                         + (1 if self._options["instances"] > 1 else 0)
 
     def _blocking_max_file(self):
-        if (len(os.listdir(self._options["directory"])) >= \
-            abs(self._options["max_file_count"])):
-            exceeded_count = len(os.listdir(self._options["directory"])) - \
-                abs(self._options["max_file_count"])
+        if sum(
+            1 for i in os.scandir(self._options["directory"]) 
+                if i.is_file()
+            ) >= abs(self._options["max_file_count"]):
 
-            def _updata_exceed_count(timeout):
-                nonlocal exceeded_count
-                exceeded_count -= 1
-                if not timeout:
-                    return exceeded_count >= 0
-                else:
-                    exceeded_count =  \
-                        len(os.listdir(self._options["directory"])) - \
-                        abs(self._options["max_file_count"])
-                    return exceeded_count >= 0
+            def _on_file_delete():
+                return sum(
+                    1 for i in os.scandir(self._options["directory"]) 
+                        if i.is_file()
+                    ) >= abs(self._options["max_file_count"])
 
             notifier = auxiliary.DirectoryNotifier(
-                self._options["directory"], _updata_exceed_count)
+                self._options["directory"])
+            notifier.notify = _on_file_delete
             notifier.wait()
 
     def _remove_or_truncate(self, raw_file_name):
