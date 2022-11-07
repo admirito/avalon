@@ -7,6 +7,8 @@ import signal
 class DirectoryNotifier:
     """
     blocking directory watcher
+    only one instace of this class can exist at a time 
+    because of system signal limitations
     """
     sig = signal.SIGUSR1
 
@@ -14,15 +16,17 @@ class DirectoryNotifier:
         self, dirname, func, 
         events_mask=fcntl.DN_DELETE | fcntl.DN_MULTISHOT, timeout=5):
         if not os.path.isdir(dirname):
-            raise RuntimeError("you can only watch a directory.")
+            raise NotADirectoryError("you can only watch a directory.")
+
         self.timeout = timeout
         self.timed_out = False
         self.func = func
         self.dirname = dirname
-        self.fd = os.open(dirname, 0)
+        self.fd = os.open(dirname, os.O_RDONLY)
         fcntl.fcntl(self.fd, fcntl.F_SETSIG, self.__class__.sig)
         fcntl.fcntl(self.fd, fcntl.F_NOTIFY, events_mask)
         signal.signal(self.__class__.sig, self)
+
 
     def __del__(self):
         os.close(self.fd)
