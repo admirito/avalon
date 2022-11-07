@@ -178,3 +178,55 @@ class SingleHTTPRequest(BaseMedia):
             headers["Content-Encoding"] = "gzip"
 
         requests.request(method, url, headers=headers, data=batch)
+
+
+class SqlMedia(BaseMedia):
+    """
+    General SQL Media
+    """
+    def __init__(self, max_writers, **options):
+        super().__init__(max_writers, **options)
+
+        self._options = options
+        self.host = self._options["host"]
+        self.port = self._options["port"]
+        self.db_name = self._options["db_name"]
+        self.table_name = self._options["table_name"]
+        self.username = self._options["username"]
+        self.password = self._options["password"]
+
+        self._connect()
+
+    def _connect(self):
+        pass
+
+    def _write(self, batch):
+        return super()._write(batch)
+
+
+class PostgresMedia(SqlMedia):
+    """
+    Postgresql specific media
+    """
+    def __init__(self, max_writers, **options):
+        super().__init__(max_writers, **options)
+
+    def _connect(self):
+        pass
+
+    def _write(self, batch):
+        return super()._write(batch)
+
+
+class ClickHouseMedia(SqlMedia):
+    """
+    Clickhouse specific media
+    """
+    def __init__(self, max_writers, **options):
+        super().__init__(max_writers, **options)
+
+    def _connect(self):
+        pass
+
+    def _write(self, batch):
+        return super()._write(batch)
