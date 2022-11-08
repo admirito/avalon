@@ -4,6 +4,7 @@ import csv
 import io
 import itertools
 import json
+import re
 
 
 class Formats:
@@ -25,8 +26,8 @@ class Formats:
         """
         return list(self._formats.keys())
 
-    def format(self, format_name):
-        return self._formats[format_name]()
+    def format(self, format_name, **kwargs):
+        return self._formats[format_name](**kwargs)
 
 
 class BaseFormat:
@@ -69,7 +70,7 @@ class CSVFormat(LineBaseFormat):
     Serialize data by generating a comma separated values per line.
     """
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__()
         self._fieldnames = []
         self._fieldnames_set = set()
 
@@ -113,6 +114,30 @@ class BatchHeaderedCSVFormat(CSVFormat):
         writer.writeheader()
         return  f"{fp.getvalue()}{data}"
 
+
+class SqlFormat(BaseFormat):
+    """
+    Creates SQL insert query values from dictionaries
+    """
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+        # table_name should contain fields order like 'tb (a, b, c)'
+        self._fields_order = re.findall(r"[^\s\(\),]+", kwargs["table_name"])
+
+    def _dict_to_sql_value(self, item: dict) -> str:
+        value = "("
+        for field_name in self._fields_order:
+            # TODO: how should we handle maps and lists?
+            value += f"{value[field_name]},"
+        value[-1] = ")"
+        return value
+
+    def batch(self, model, size):
+        return ",".join(itertools.chain(
+            (self._dict_to_sql_value(model.next()) for _ in range(size)),
+            [""]))
+
+
 def get_formats():
     """
     Returns a singleton instance of Formats class in which all the
@@ -128,6 +153,7 @@ def get_formats():
     _formats.register("json-lines", JsonLinesFormat)
     _formats.register("csv", CSVFormat)
     _formats.register("batch-headered-csv", BatchHeaderedCSVFormat)
+    _formats.register("sql", SqlFormat)
 
     return _formats
 

@@ -4,6 +4,8 @@ import multiprocessing
 import os
 import zlib
 import requests
+import pyodbc
+import psycopg2
 
 from . import auxiliary
 
@@ -188,20 +190,21 @@ class SqlMedia(BaseMedia):
         super().__init__(max_writers, **options)
 
         self._options = options
-        self.host = self._options["host"]
-        self.port = self._options["port"]
-        self.db_name = self._options["db_name"]
-        self.table_name = self._options["table_name"]
-        self.username = self._options["username"]
-        self.password = self._options["password"]
 
+        # table_name should contain fields order like 'tb (a, b, c)'
+        self.table_name = self._options["table_name"]
         self._connect()
 
     def _connect(self):
-        pass
-
+        self.con = pyodbc.connect(
+            f"DSN={self._options['dsn']};PWD={self._options['password']}")
+    
     def _write(self, batch):
-        return super()._write(batch)
+        self.con.execute(f"INSERT INTO {self.table_name} VALUES {batch}")
+        self.con.commit()
+    
+    def __del__(self):
+        self.con.close()
 
 
 class PostgresMedia(SqlMedia):

@@ -51,7 +51,7 @@ def main():
         default="json-lines",
         help="Set the output format for serialization.")
     parser.add_argument(
-        "--output-media", choices=["file", "http", "directory"],
+        "--output-media", choices=["file", "http", "directory", "sql"],
         default="file", help="Set the output media for transferring data.")
     parser.add_argument(
         "--output-writers", metavar="<N>", type=int, default=4,
@@ -98,6 +98,16 @@ def main():
         "--suffix", metavar="<suffix>", type=str, dest="suffix",
         help="used with directory media, determines output files' suffix.")
     parser.add_argument(
+        "--dsn", metavar="<DSN>", type=str, dest="dsn",
+        help="used with SQL media, determines database 'Data source name'.")
+    parser.add_argument(
+        "--table-name", metavar="<tbl>", type=str, dest="table_name",
+        help="used with SQL media, determines database table name. \
+        this name should contain fields order for exmaple 'tbl (a, b, c)'")
+    parser.add_argument(
+        "--password", metavar="<passwd>", type=str, dest="password",
+        help="used with SQL media, determines DBMS user's password.")    
+    parser.add_argument(
         "--output-http-url", metavar="<url>",
         default="http://localhost:8081/mangolc",
         help="For http media, use <url> to send output.")
@@ -122,7 +132,9 @@ def main():
         sys.stderr.write("\n")
         exit(0)
 
-    _format = formats.format(args.output_format)
+    _format = formats.format(args.output_format,
+        table_name=args.table_name
+        )
 
     batch_generators = []
 
@@ -173,6 +185,12 @@ def main():
             dir_blocking_enable=args.dir_blocking_enable,
             ordered_mode=args.ordered_mode,
             instances=instances
+        )
+    elif args.output_media == "sql":
+        media = mediums.SqlMedia(
+            table_name=args.table_name,
+            dsn=args.dsn,
+            password=args.password
         )
 
     processor = processors.Processor(batch_generators, media, args.rate,
