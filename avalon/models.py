@@ -159,7 +159,10 @@ class RFlowModel(BaseModel):
         
         @return metadata as a dictionary
         """
-        metadata_count = random.randint(0, len(self.__class__.metadata_list))
+        metadata_count = choose_in_normal_distribution(
+            max=RFlow_params.metadata_count_max,
+            mean=RFlow_params.metadata_count_mean, 
+            stddev=RFlow_params.metadata_stddev)
         sample_metadata = random.sample(
             list(range(len(self.__class__.metadata_list))), metadata_count)
         flow_metadata = {}

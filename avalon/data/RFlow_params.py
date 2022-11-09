@@ -14,6 +14,11 @@ l4_norm_stddev = 2
 l7_range = (0, 2988)
 l7_norm_stddev = 2
 
+
+metadata_count_max = 30
+metadata_count_mean = 7
+metadata_stddev = 1
+
 default_metadata_values = ['python', 'C', 'java', 'C#', 'javascript', 'rust', 
     'ruby', 'php', 'Go', 'R', 'scala', 'swift',  'cpp', 'prolog', 'VHDL', 
     'perl', 'pascal', 'matlab', 'lua', 'kotlin', 'J', 'html', 'css', 'haskell',
