@@ -99,14 +99,15 @@ def main():
         help="used with directory media, determines output files' suffix.")
     parser.add_argument(
         "--dsn", metavar="<DSN>", type=str, dest="dsn",
-        help="used with SQL media, determines database 'Data source name'.")
+        help="used with SQL media, determines database 'Data source name'. \
+        this should be in form of 'dialect[+driver]://user:password@host/dbname'")
     parser.add_argument(
         "--table-name", metavar="<tbl>", type=str, dest="table_name",
         help="used with SQL media, determines database table name. \
         this name should contain fields order for exmaple 'tbl (a, b, c)'")
     parser.add_argument(
-        "--password", metavar="<passwd>", type=str, dest="password",
-        help="used with SQL media, determines DBMS user's password.")    
+        "--autocommit", action="store_true", dest="autocommit",
+        help="used with SQL media, enables query autocommit.")
     parser.add_argument(
         "--output-http-url", metavar="<url>",
         default="http://localhost:8081/mangolc",
@@ -190,7 +191,8 @@ def main():
         media = mediums.SqlMedia(
             table_name=args.table_name,
             dsn=args.dsn,
-            password=args.password
+            password=args.password,
+            autocommit=args.autocommit
         )
 
     processor = processors.Processor(batch_generators, media, args.rate,

@@ -4,8 +4,7 @@ import multiprocessing
 import os
 import zlib
 import requests
-import pyodbc
-import psycopg2
+import sqlalchemy
 
 from . import auxiliary
 
@@ -196,12 +195,13 @@ class SqlMedia(BaseMedia):
         self._connect()
 
     def _connect(self):
-        self.con = pyodbc.connect(
-            f"DSN={self._options['dsn']};PWD={self._options['password']}")
+        self.engine = sqlalchemy.create_engine(f"DSN={self._options['dsn']}")
+        self.con = self.engine.connect()
+        self.con.execution_options(autocommit=self._options["autocommit"])
     
     def _write(self, batch):
-        self.con.execute(f"INSERT INTO {self.table_name} VALUES {batch}")
-        self.con.commit()
+        self.con.execute(
+            sqlalchemy.text(f"INSERT INTO {self.table_name} VALUES {batch}"))
     
     def __del__(self):
         self.con.close()
