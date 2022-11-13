@@ -189,9 +189,9 @@ def main():
         )
     elif args.output_media == "sql":
         media = mediums.SqlMedia(
+            max_writers=args.output_writers,
             table_name=args.table_name,
             dsn=args.dsn,
-            password=args.password,
             autocommit=args.autocommit
         )
 

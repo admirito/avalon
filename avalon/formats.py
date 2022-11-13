@@ -5,6 +5,7 @@ import io
 import itertools
 import json
 import re
+import datetime
 
 
 class Formats:
@@ -122,20 +123,24 @@ class SqlFormat(BaseFormat):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
         # table_name should contain fields order like 'tb (a, b, c)'
-        self._fields_order = re.findall(r"[^\s\(\),]+", kwargs["table_name"])
+        self._fields_order = re.findall(
+            r"[^\s\(\),]+", kwargs["table_name"])[1:]
 
     def _dict_to_sql_value(self, item: dict) -> str:
         value = "("
-        for field_name in self._fields_order:
+        for i in range(len(self._fields_order)):
             # TODO: how should we handle maps and lists?
-            value += f"{value[field_name]},"
-        value[-1] = ")"
-        return value
+            tmp_val = item[self._fields_order[i]]
+            if type(tmp_val) in [str, datetime.datetime]:
+                value += f"\"{item[self._fields_order[i]]}\","
+            else:
+                value += f"{item[self._fields_order[i]]},"
+        return value[:-1] + ")"
 
     def batch(self, model, size):
         return ",".join(itertools.chain(
             (self._dict_to_sql_value(model.next()) for _ in range(size)),
-            [""]))
+            [""]))[:-1]
 
 
 def get_formats():
@@ -166,9 +171,9 @@ def formats_list():
     return get_formats().formats_list()
 
 
-def format(format_name):
+def format(format_name, **kwargs):
     """
     Syntactic suger to get a format from the formats singleton
     from get_formats() method.
     """
-    return get_formats().format(format_name)
+    return get_formats().format(format_name, **kwargs)

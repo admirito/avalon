@@ -195,7 +195,7 @@ class SqlMedia(BaseMedia):
         self._connect()
 
     def _connect(self):
-        self.engine = sqlalchemy.create_engine(f"DSN={self._options['dsn']}")
+        self.engine = sqlalchemy.create_engine(f"{self._options['dsn']}")
         self.con = self.engine.connect()
         self.con.execution_options(autocommit=self._options["autocommit"])
     
