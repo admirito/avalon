@@ -192,7 +192,7 @@ class SqlMedia(BaseMedia):
 
         # table_name should contain fields order like 'tb (a, b, c)'
         self.table_name = self._options["table_name"]
-        self._connect()
+        self.is_connected = False
 
     def _connect(self):
         self.engine = sqlalchemy.create_engine(f"{self._options['dsn']}")
@@ -200,6 +200,11 @@ class SqlMedia(BaseMedia):
         self.con.execution_options(autocommit=self._options["autocommit"])
     
     def _write(self, batch):
+        # lazy connect to avoid multi-processing problems on connection
+        if not self.is_connected:
+            self._connect()
+            self.is_connected = True
+
         self.con.execute(
             sqlalchemy.text(f"INSERT INTO {self.table_name} VALUES {batch}"))
     

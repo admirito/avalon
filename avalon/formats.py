@@ -132,7 +132,7 @@ class SqlFormat(BaseFormat):
             # TODO: how should we handle maps and lists?
             tmp_val = item[self._fields_order[i]]
             if type(tmp_val) in [str, datetime.datetime]:
-                value += f"\"{item[self._fields_order[i]]}\","
+                value += f"'{item[self._fields_order[i]]}',"
             else:
                 value += f"{item[self._fields_order[i]]},"
         return value[:-1] + ")"
