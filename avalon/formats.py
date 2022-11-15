@@ -6,6 +6,7 @@ import itertools
 import json
 import re
 import datetime
+from sqlalchemy import text
 
 
 class Formats:
@@ -123,19 +124,16 @@ class SqlFormat(BaseFormat):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
         # table_name should contain fields order like 'tb (a, b, c)'
-        self._fields_order = re.findall(
+        _fields_order = re.findall(
             r"[^\s\(\),]+", kwargs["table_name"])[1:]
+        
+        self._base_value = "("
+        for field in _fields_order:
+            self._base_value += (f"{field},")
+        self._base_value = self._base_value[:-1] + ")"
 
     def _dict_to_sql_value(self, item: dict) -> str:
-        value = "("
-        for i in range(len(self._fields_order)):
-            # TODO: how should we handle maps and lists?
-            tmp_val = item[self._fields_order[i]]
-            if type(tmp_val) in [str, datetime.datetime]:
-                value += f"'{item[self._fields_order[i]]}',"
-            else:
-                value += f"{item[self._fields_order[i]]},"
-        return value[:-1] + ")"
+        return text(self._base_value).bindparams(**item)
 
     def batch(self, model, size):
         return ",".join(itertools.chain(
