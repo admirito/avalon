@@ -61,7 +61,7 @@ class JsonLinesFormat(LineBaseFormat):
     Serialize data by generating a JSON Object per line.
     """
     def _to_line(self, item):
-        return json.dumps(item)
+        return json.dumps(item, default=str)
 
 
 class CSVFormat(LineBaseFormat):
@@ -90,6 +90,29 @@ class CSVFormat(LineBaseFormat):
         return list(self._fieldnames)
 
 
+
+class BatchHeaderedCSVFormat(CSVFormat):
+    """
+    Serialize data by generating a comma separated values per line and 
+    each batch contains header 
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+       
+    def batch(self, model, size): # every batch can be considered as a file
+        """
+        produces headered batches.
+        
+        @param model is data generator model
+        @param size is batch size
+        @return a headered batch
+        """
+        data = super().batch(model, size)
+        fp = io.StringIO()
+        writer = csv.DictWriter(fp, self.get_headers())
+        writer.writeheader()
+        return  f"{fp.getvalue()}{data}"
+
 def get_formats():
     """
     Returns a singleton instance of Formats class in which all the
@@ -104,6 +127,7 @@ def get_formats():
 
     _formats.register("json-lines", JsonLinesFormat)
     _formats.register("csv", CSVFormat)
+    _formats.register("batch-headered-csv", BatchHeaderedCSVFormat)
 
     return _formats
 

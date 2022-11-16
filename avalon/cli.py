@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from ast import arg
 import re
 import sys
 
@@ -27,6 +28,10 @@ def main():
         "of 100. The data will be generated based on the specified "
         "composition.")
     parser.add_argument(
+        "--metadata-file", metavar="<file>", type=str,
+        default="metadata-list.sh", dest="metadata_file_name",
+        help="Used with RFlow Model, determines the metadata list file.")
+    parser.add_argument(
         "--rate", metavar="<N>", type=int, default=1,
         help="Set avarage transfer rate to to <N> items per seconds.")
     parser.add_argument(
@@ -46,8 +51,8 @@ def main():
         default="json-lines",
         help="Set the output format for serialization.")
     parser.add_argument(
-        "--output-media", choices=["file", "http"], default="file",
-        help="Set the output media for transferring data.")
+        "--output-media", choices=["file", "http", "directory"],
+        default="file", help="Set the output media for transferring data.")
     parser.add_argument(
         "--output-writers", metavar="<N>", type=int, default=4,
         help="Limit the maximum number of simultaneous output writers to <N>.")
@@ -55,6 +60,43 @@ def main():
         "--output-file-name", metavar="<file>", default="-",
         type=argparse.FileType("w"), dest="output_file",
         help="For file media, write output to <file> instead of stdout.")
+    parser.add_argument(
+        "--dir-name", metavar="<dir>", default="avalon-output",
+        type=str, dest="dir_path",
+        help="Used with directory media, \
+            determines the directory relative name.")
+    parser.add_argument(
+        "--tmp-dir-name", metavar="<dir>", type=str, dest="tmp_dir_path",
+        help="Used with directory media, \
+            activate tmp directory and determines the directory relative name.\
+             files are created in this first and then moved (renamed) to the \
+            destination directory. this directory and the main directory \
+            specified with '--dir-name' should be in same mount point \
+            to avoid copy and extra write operation.")
+    parser.add_argument(
+        "--blocking-max-files", action='store_true', 
+        dest="dir_blocking_enable",
+        help="Used with directory media, \
+            blocks avalon when directory file count bigger than '--max-files' \
+            and wait until some files be deleted by an exteral entity.")
+    parser.add_argument(
+        "--max-files", metavar="<N>", type=int, dest="max_file_count",
+        default=0,
+        help="used with directory media, determines maximum file \
+            count in directory, old files will be truncated to zero \
+            (or remove if value is negative). this value in not accurate and \
+            max count of directory files \
+            can be in range [<N>, <N> + instances_count - 1]")
+    parser.add_argument(
+        "--ordered-name", action='store_true', dest="ordered_mode",
+        help="used with directory media, choose name using global \
+            index (between avalon instances) and ensures \
+            file with lower index is older than biger one. this needs some \
+            inter process lock so it has more overhead \
+            in compared with 'unordered mode'")
+    parser.add_argument(
+        "--suffix", metavar="<suffix>", type=str, dest="suffix",
+        help="used with directory media, determines output files' suffix.")
     parser.add_argument(
         "--output-http-url", metavar="<url>",
         default="http://localhost:8081/mangolc",
@@ -105,9 +147,11 @@ def main():
         # All instances together should generate the ratio
         ratio = ratio / instances if ratio is not None else None
 
+        models_options = {"metadata_file_name" : args.metadata_file_name}
         batch_generators.extend(
-            processors.BatchGenerator(models.model(model_name), _format,
-                                      batch_size, ratio)
+            processors.BatchGenerator(
+                models.model(model_name, **models_options),
+                _format, batch_size, ratio)
             for _ in range(instances))
 
     if args.output_media == "file":
@@ -119,6 +163,17 @@ def main():
             max_writers=args.output_writers,
             url=args.output_http_url,
             gzip=args.output_http_gzip)
+    elif args.output_media == "directory":
+        media = mediums.DirectoryMedia(
+            max_writers=args.output_writers,
+            directory=args.dir_path,
+            suffix=args.suffix,
+            max_file_count=args.max_file_count,
+            tmp_dir_path=args.tmp_dir_path,
+            dir_blocking_enable=args.dir_blocking_enable,
+            ordered_mode=args.ordered_mode,
+            instances=instances
+        )
 
     processor = processors.Processor(batch_generators, media, args.rate,
                                      args.number, args.duration)
