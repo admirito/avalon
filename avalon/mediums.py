@@ -6,6 +6,7 @@ import zlib
 import requests
 import sqlalchemy
 import re
+import kafka
 
 from . import auxiliary
 
@@ -216,29 +217,14 @@ class SqlMedia(BaseMedia):
             self.con.close()
 
 
-class PostgresMedia(SqlMedia):
-    """
-    Postgresql specific media
-    """
+class KafkaMedia(BaseMedia):
     def __init__(self, max_writers, **options):
-        super().__init__(max_writers, **options)
+       super().__init__(max_writers, **options)
+       self.topic = options["topic"]
+       self.producer = kafka.KafkaProducer(
+           bootstrap_servers=options["bootstrap_servers"])
 
-    def _connect(self):
-        pass
-
-    def _write(self, batch):
-        return super()._write(batch)
-
-
-class ClickHouseMedia(SqlMedia):
-    """
-    Clickhouse specific media
-    """
-    def __init__(self, max_writers, **options):
-        super().__init__(max_writers, **options)
-
-    def _connect(self):
-        pass
-
-    def _write(self, batch):
-        return super()._write(batch)
+    def _write(self, batch: str):
+        if not isinstance(batch, str):
+            raise ValueError("kafka media only accepts string value.")
+        self.producer.send(topic=self.topic, value=batch.encode('utf-8'))

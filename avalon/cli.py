@@ -51,11 +51,19 @@ def main():
         default="json-lines",
         help="Set the output format for serialization.")
     parser.add_argument(
-        "--output-media", choices=["file", "http", "directory", "sql"],
+        "--output-media", 
+        choices=["file", "http", "directory", "sql", "kafka"],
         default="file", help="Set the output media for transferring data.")
     parser.add_argument(
         "--output-writers", metavar="<N>", type=int, default=4,
         help="Limit the maximum number of simultaneous output writers to <N>.")
+    parser.add_argument(
+        "--bootstrap-servers", metavar="<addr>", type=str,
+        dest="bootstrap_servers",
+        help="used with kafka media, determines server address.")
+    parser.add_argument(
+        "--topic", metavar="<t>", type=str, dest="topic",
+        help="used with kafka media, determines the topic.")
     parser.add_argument(
         "--output-file-name", metavar="<file>", default="-",
         type=argparse.FileType("w"), dest="output_file",
@@ -194,6 +202,14 @@ def main():
             dsn=args.dsn,
             autocommit=args.autocommit
         )
+    elif args.output_media == "kafka":
+        media = mediums.KafkaMedia(
+            max_writers=args.output_writers,
+            instances=instances,
+            bootstrap_servers=args.bootstrap_servers,
+            topic=args.topic
+    )
+
 
     processor = processors.Processor(batch_generators, media, args.rate,
                                      args.number, args.duration)
