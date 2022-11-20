@@ -5,6 +5,7 @@ import os
 import zlib
 import requests
 import sqlalchemy
+import re
 
 from . import auxiliary
 
@@ -191,25 +192,28 @@ class SqlMedia(BaseMedia):
         self._options = options
 
         # table_name should contain fields order like 'tb (a, b, c)'
-        self.table_name = self._options["table_name"]
-        self.is_connected = False
+        self.table_params = re.findall(
+            r"[^\s\(\),]+", self._options["table_name"])
+        self.table = sqlalchemy.table(
+            self.table_params[0], 
+            *[sqlalchemy.column(x) for x in self.table_params[1:]])
+        self.con = None
 
     def _connect(self):
-        self.engine = sqlalchemy.create_engine(f"{self._options['dsn']}")
+        self.engine = sqlalchemy.create_engine(self._options['dsn'])
         self.con = self.engine.connect()
         self.con.execution_options(autocommit=self._options["autocommit"])
+        
     
     def _write(self, batch):
         # lazy connect to avoid multi-processing problems on connection
-        if not self.is_connected:
+        if not self.con:
             self._connect()
-            self.is_connected = True
-
-        self.con.execute(
-            sqlalchemy.text(f"INSERT INTO {self.table_name} VALUES {batch}"))
+        self.con.execute(self.table.insert(), batch)
     
     def __del__(self):
-        self.con.close()
+        if self.con:
+            self.con.close()
 
 
 class PostgresMedia(SqlMedia):

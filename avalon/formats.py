@@ -7,6 +7,8 @@ import json
 import re
 import datetime
 from sqlalchemy import text
+from sqlalchemy import insert
+
 
 
 class Formats:
@@ -123,23 +125,10 @@ class SqlFormat(BaseFormat):
     """
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
-        # table_name should contain fields order like 'tb (a, b, c)'
-        _fields_order = re.findall(
-            r"[^\s\(\),]+", kwargs["table_name"])[1:]
-        
-        self._base_value = "("
-        for field in _fields_order:
-            self._base_value += (f"{field},")
-        self._base_value = self._base_value[:-1] + ")"
-
-    def _dict_to_sql_value(self, item: dict) -> str:
-        return text(self._base_value).bindparams(**item)
 
     def batch(self, model, size):
-        return ",".join(itertools.chain(
-            (self._dict_to_sql_value(model.next()) for _ in range(size)),
-            [""]))[:-1]
-
+        return [model.next() for _ in range(size)] 
+            
 
 def get_formats():
     """
