@@ -60,10 +60,16 @@ def main():
     parser.add_argument(
         "--bootstrap-servers", metavar="<addr>", type=str,
         dest="bootstrap_servers",
-        help="used with kafka media, determines server address.")
+        help="used with kafka media, a comma seperated list \
+            determines servers addresses.")
     parser.add_argument(
         "--topic", metavar="<t>", type=str, dest="topic",
         help="used with kafka media, determines the topic.")
+    parser.add_argument(
+        "--force-flush", action='store_true', 
+        dest="force_flush",
+        help="used with kafka media, force to flush kafka producer for \
+            each batch, may have bad effect of performance.")
     parser.add_argument(
         "--output-file-name", metavar="<file>", default="-",
         type=argparse.FileType("w"), dest="output_file",
@@ -207,7 +213,8 @@ def main():
             max_writers=args.output_writers,
             instances=instances,
             bootstrap_servers=args.bootstrap_servers,
-            topic=args.topic
+            topic=args.topic,
+            force_flush=args.force_flush
     )
 
 

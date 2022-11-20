@@ -220,11 +220,19 @@ class SqlMedia(BaseMedia):
 class KafkaMedia(BaseMedia):
     def __init__(self, max_writers, **options):
        super().__init__(max_writers, **options)
-       self.topic = options["topic"]
-       self.producer = kafka.KafkaProducer(
-           bootstrap_servers=options["bootstrap_servers"])
+       self._options = options
+       self._topic = self._options["topic"]
+       self._producer: kafka.KafkaProducer = None 
+       self.force_flush = self._options["force_flush"]
 
     def _write(self, batch: str):
         if not isinstance(batch, str):
             raise ValueError("kafka media only accepts string value.")
         self.producer.send(topic=self.topic, value=batch.encode('utf-8'))
+        # producer have to be created per process
+        if not self._producer:
+            self._producer = kafka.KafkaProducer(
+                bootstrap_servers=self._options["bootstrap_servers"].split(","))
+        self._producer.send(topic=self._topic, value=batch.encode("utf-8"))
+        if self.force_flush:
+            self._producer.flush(3)
