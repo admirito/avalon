@@ -4,11 +4,6 @@ import csv
 import io
 import itertools
 import json
-import re
-import datetime
-from sqlalchemy import text
-from sqlalchemy import insert
-
 
 
 class Formats:
