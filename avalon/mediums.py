@@ -228,7 +228,6 @@ class KafkaMedia(BaseMedia):
     def _write(self, batch: str):
         if not isinstance(batch, str):
             raise ValueError("kafka media only accepts string value.")
-        self.producer.send(topic=self.topic, value=batch.encode('utf-8'))
         # producer have to be created per process
         if not self._producer:
             self._producer = kafka.KafkaProducer(
