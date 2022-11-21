@@ -4,6 +4,8 @@ import multiprocessing
 import os
 import zlib
 import requests
+import sqlalchemy
+import re
 
 from . import auxiliary
 
@@ -178,3 +180,65 @@ class SingleHTTPRequest(BaseMedia):
             headers["Content-Encoding"] = "gzip"
 
         requests.request(method, url, headers=headers, data=batch)
+
+
+class SqlMedia(BaseMedia):
+    """
+    General SQL Media
+    """
+    def __init__(self, max_writers, **options):
+        super().__init__(max_writers, **options)
+
+        self._options = options
+
+        # table_name should contain fields order like 'tb (a, b, c)'
+        self.table_params = re.findall(
+            r"[^\s\(\),]+", self._options["table_name"])
+        self.table = sqlalchemy.table(
+            self.table_params[0], 
+            *[sqlalchemy.column(x) for x in self.table_params[1:]])
+        self.con = None
+
+    def _connect(self):
+        self.engine = sqlalchemy.create_engine(self._options['dsn'])
+        self.con = self.engine.connect()
+        self.con.execution_options(autocommit=self._options["autocommit"])
+        
+    
+    def _write(self, batch):
+        # lazy connect to avoid multi-processing problems on connection
+        if not self.con:
+            self._connect()
+        self.con.execute(self.table.insert(), batch)
+    
+    def __del__(self):
+        if self.con:
+            self.con.close()
+
+
+class PostgresMedia(SqlMedia):
+    """
+    Postgresql specific media
+    """
+    def __init__(self, max_writers, **options):
+        super().__init__(max_writers, **options)
+
+    def _connect(self):
+        pass
+
+    def _write(self, batch):
+        return super()._write(batch)
+
+
+class ClickHouseMedia(SqlMedia):
+    """
+    Clickhouse specific media
+    """
+    def __init__(self, max_writers, **options):
+        super().__init__(max_writers, **options)
+
+    def _connect(self):
+        pass
+
+    def _write(self, batch):
+        return super()._write(batch)

@@ -25,8 +25,8 @@ class Formats:
         """
         return list(self._formats.keys())
 
-    def format(self, format_name):
-        return self._formats[format_name]()
+    def format(self, format_name, **kwargs):
+        return self._formats[format_name](**kwargs)
 
 
 class BaseFormat:
@@ -69,7 +69,7 @@ class CSVFormat(LineBaseFormat):
     Serialize data by generating a comma separated values per line.
     """
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__()
         self._fieldnames = []
         self._fieldnames_set = set()
 
@@ -113,6 +113,18 @@ class BatchHeaderedCSVFormat(CSVFormat):
         writer.writeheader()
         return  f"{fp.getvalue()}{data}"
 
+
+class SqlFormat(BaseFormat):
+    """
+    Creates SQL insert query values from dictionaries
+    """
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+
+    def batch(self, model, size):
+        return [model.next() for _ in range(size)] 
+            
+
 def get_formats():
     """
     Returns a singleton instance of Formats class in which all the
@@ -128,6 +140,7 @@ def get_formats():
     _formats.register("json-lines", JsonLinesFormat)
     _formats.register("csv", CSVFormat)
     _formats.register("batch-headered-csv", BatchHeaderedCSVFormat)
+    _formats.register("sql", SqlFormat)
 
     return _formats
 
@@ -140,9 +153,9 @@ def formats_list():
     return get_formats().formats_list()
 
 
-def format(format_name):
+def format(format_name, **kwargs):
     """
     Syntactic suger to get a format from the formats singleton
     from get_formats() method.
     """
-    return get_formats().format(format_name)
+    return get_formats().format(format_name, **kwargs)
