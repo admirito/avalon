@@ -6,6 +6,7 @@ import zlib
 import requests
 import sqlalchemy
 import re
+import kafka
 
 from . import auxiliary
 
@@ -216,29 +217,22 @@ class SqlMedia(BaseMedia):
             self.con.close()
 
 
-class PostgresMedia(SqlMedia):
-    """
-    Postgresql specific media
-    """
+class KafkaMedia(BaseMedia):
     def __init__(self, max_writers, **options):
-        super().__init__(max_writers, **options)
+       super().__init__(max_writers, **options)
+       self._options = options
+       self._topic = self._options["topic"]
+       self._producer: kafka.KafkaProducer = None 
+       self.force_flush = self._options["force_flush"]
 
-    def _connect(self):
-        pass
-
-    def _write(self, batch):
-        return super()._write(batch)
-
-
-class ClickHouseMedia(SqlMedia):
-    """
-    Clickhouse specific media
-    """
-    def __init__(self, max_writers, **options):
-        super().__init__(max_writers, **options)
-
-    def _connect(self):
-        pass
-
-    def _write(self, batch):
-        return super()._write(batch)
+    def _write(self, batch: str):
+        if not isinstance(batch, str):
+            raise ValueError("kafka media only accepts string value.")
+        # producer have to be created per process
+        if not self._producer:
+            self._producer = kafka.KafkaProducer(
+                bootstrap_servers=self._options["bootstrap_servers"].split(",")
+            )
+        self._producer.send(topic=self._topic, value=batch.encode("utf-8"))
+        if self.force_flush:
+            self._producer.flush(3)
