@@ -236,7 +236,10 @@ class KafkaMedia(BaseMedia):
         # producer have to be created per process
         if not self._producer:
             self._producer = kafka.KafkaProducer(
-                bootstrap_servers=self._options["bootstrap_servers"].split(",")
+                bootstrap_servers=
+                    self._options["bootstrap_servers"].split(","),
+                    batch_size=2**16,
+                    linger_ms=1000,
             )
         self._producer.send(topic=self._topic, value=batch.encode("utf-8"))
         if self.force_flush:
