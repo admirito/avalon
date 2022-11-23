@@ -41,9 +41,14 @@ class FileMedia(BaseMedia):
 
     Write the data into an IO stream.
     """
+    def __init__(self, max_writers, **options):
+        super().__init__(max_writers, **options)
+        self._lock = self._lock = multiprocessing.Lock()
+        self.fp = self._options["file"]
+
     def _write(self, batch):
-        fp = self._options["file"]
-        fp.write(batch)
+        with self._lock:
+            self.fp.write(batch)
 
 
 class DirectoryMedia(BaseMedia):
@@ -234,5 +239,10 @@ class KafkaMedia(BaseMedia):
                 bootstrap_servers=self._options["bootstrap_servers"].split(",")
             )
         self._producer.send(topic=self._topic, value=batch.encode("utf-8"))
+        self._producer.send()
         if self.force_flush:
             self._producer.flush(3)
+
+    def __del__(self):
+        if self._producer:
+            self._producer.flush(5)
