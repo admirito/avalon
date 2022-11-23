@@ -239,7 +239,6 @@ class KafkaMedia(BaseMedia):
                 bootstrap_servers=self._options["bootstrap_servers"].split(",")
             )
         self._producer.send(topic=self._topic, value=batch.encode("utf-8"))
-        self._producer.send()
         if self.force_flush:
             self._producer.flush(3)
 
