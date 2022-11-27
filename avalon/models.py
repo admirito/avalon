@@ -4,6 +4,7 @@ import base64
 from copy import deepcopy
 import time
 import datetime
+import inspect
 import random
 import socket
 import struct
@@ -346,6 +347,12 @@ def get_models():
 
     _models.register("test", TestModel)
     _models.register("rflow", RFlowModel)
+
+    from . import templates
+    for attr, value in templates.__dict__.items():
+        if inspect.isclass(value) and issubclass(value, BaseModel) and \
+           hasattr(value, "__model_name__"):
+            _models.register(getattr(value, "__model_name__"), value)
 
     return _models
 

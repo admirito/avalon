@@ -149,9 +149,7 @@ def main():
         sys.stderr.write("\n")
         exit(0)
 
-    _format = formats.format(args.output_format,
-        table_name=args.table_name
-        )
+    _format = formats.format(args.output_format)
 
     batch_generators = []
 
