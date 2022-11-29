@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
-from ast import arg
 import re
+import os
 import sys
 
 from . import __version__
@@ -29,7 +29,9 @@ def main():
         "composition.")
     parser.add_argument(
         "--metadata-file", metavar="<file>", type=str,
-        default="metadata-list.sh", dest="metadata_file_name",
+        default=os.path.join(os.path.dirname(__file__), "models", "rflowdata",
+                             "metadata-list.sh"),
+        dest="metadata_file_name",
         help="Used with RFlow Model, determines the metadata list file.")
     parser.add_argument(
         "--rate", metavar="<N>", type=int, default=1,
@@ -51,13 +53,21 @@ def main():
         default="json-lines",
         help="Set the output format for serialization.")
     parser.add_argument(
-        "--output-media", 
-        choices=["file", "http", "directory", "sql",\
-             "kafka", "psycopg", "clickhouse"],
+        "--output-media",
+        choices=["file", "http", "directory", "sql", "psycopg", "clickhouse",
+                 "kafka"],
         default="file", help="Set the output media for transferring data.")
     parser.add_argument(
         "--output-writers", metavar="<N>", type=int, default=4,
         help="Limit the maximum number of simultaneous output writers to <N>.")
+    parser.add_argument(
+        "--filter", metavar="<keys>", type=str, action="append",
+        dest="filters", default=[],
+        help="Only the specified <keys> will be generated. This option \
+        could be repeated or a list of comma separated <keys> should \
+        be provieded. The output will use the same order as it is \
+        provided here in the command-line so it could be used to set \
+        the csv columns order.")
     parser.add_argument(
         "--bootstrap-servers", metavar="<addr>", type=str,
         dest="bootstrap_servers",
@@ -67,7 +77,7 @@ def main():
         "--topic", metavar="<t>", type=str, dest="topic",
         help="used with kafka media, determines the topic.")
     parser.add_argument(
-        "--force-flush", action='store_true', 
+        "--force-flush", action='store_true',
         dest="force_flush",
         help="used with kafka media, force to flush kafka producer for \
             each batch, may have bad effect of performance.")
@@ -149,7 +159,10 @@ def main():
         sys.stderr.write("\n")
         exit(0)
 
-    _format = formats.format(args.output_format)
+    filters = [i.split(",") for i in args.filters]
+    filters = sum(filters, [])  # flatten the list
+
+    _format = formats.format(args.output_format, filters=filters)
 
     batch_generators = []
 
@@ -208,14 +221,6 @@ def main():
             dsn=args.dsn,
             autocommit=args.autocommit
         )
-    elif args.output_media == "kafka":
-        media = mediums.KafkaMedia(
-            max_writers=args.output_writers,
-            instances=instances,
-            bootstrap_servers=args.bootstrap_servers,
-            topic=args.topic,
-            force_flush=args.force_flush
-        )
     elif args.output_media == "psycopg":
         media = mediums.PsycopgMedia(
             max_writers=args.output_writers,
@@ -228,7 +233,14 @@ def main():
             table_name=args.table_name,
             dsn=args.dsn
         )
-
+    elif args.output_media == "kafka":
+        media = mediums.KafkaMedia(
+            max_writers=args.output_writers,
+            instances=instances,
+            bootstrap_servers=args.bootstrap_servers,
+            topic=args.topic,
+            force_flush=args.force_flush
+        )
 
     processor = processors.Processor(batch_generators, media, args.rate,
                                      args.number, args.duration)
