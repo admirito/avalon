@@ -7,6 +7,7 @@ import os
 import random
 import socket
 import struct
+import time
 
 from . import BaseModel
 from .rand import choose_in_normal_distribution
@@ -72,6 +73,7 @@ class LogTemplateModel(BaseModel):
 
         if self.enable_default_log_seeds:
             # TODO: preserve "aid" value in consecutive executions
+            default["ctime"] = time.time()
             default["aid"] = os.getpid()
             default["srcip_int"], default["srcip"] = self._random_ip()
             default["dstip_int"], default["dstip"] = self._random_ip()
@@ -132,6 +134,7 @@ def log_templates(obj):
     of the dictionary (CPython 3.6+).
     """
     defaults_base = {
+        "ctime": lambda seed: seed["ctime"],
         "aname": None, "aclass": None, "amodel": None, "aid": "{aid}",
         "severity": "low",
         "srcip": lambda seed: seed["srcip_int"],

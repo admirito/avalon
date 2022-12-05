@@ -88,7 +88,7 @@ def main():
         each batch, may have bad effect of performance.")
     parser.add_argument(
         "--output-file-name", metavar="<file>", default="-",
-        type=argparse.FileType("w"), dest="output_file",
+        type=argparse.FileType("wb"), dest="output_file",
         help="For file media, write output to <file> instead of stdout.")
     parser.add_argument(
         "--dir-name", metavar="<dir>", default="avalon-output",

@@ -51,7 +51,9 @@ class FileMedia(BaseMedia):
 
     def _write(self, batch):
         with self._lock:
-            self.fp.write(batch)
+            self.fp.write(batch if isinstance(batch, bytes)
+                          else batch.encode("utf8"))
+            self.fp.flush()
 
 
 class DirectoryMedia(BaseMedia):

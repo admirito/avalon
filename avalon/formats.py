@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 
+import binascii
 import csv
 import ctypes
+import datetime
 import io
 import itertools
 import json
 import multiprocessing
+import os
+import pickle
+import struct
+import time
 
 
 class Formats:
@@ -190,6 +196,91 @@ class SqlFormat(BaseFormat):
         return [self.apply_filters(model.next()) for _ in range(size)]
 
 
+class PickledIDMEF(BaseFormat):
+    """
+    Serialize data by generating a binary Python pickled list. The
+    list will contain tuples of metadata and IDMEF (RFC 4765) list of
+    tuples. The IDMEF is a list of tuples which the first item is an
+    XPath from IDMEF XML and the second item is its value.
+    """
+
+    time_id_counter = multiprocessing.Value("i")
+
+    class PLACEHOLDER:
+        pass
+
+    idmef_paths = {
+        "ctime": "/Alert/CreateTime",
+        "aname": "/Alert/Analyzer/@name",
+        "aclass": "/Alert/Analyzer/@class",
+        "amodel": "/Alert/Analyzer/@model",
+        "aid": "/Alert/Analyzer/@analyzerid",
+        "severity": "/Alert/Assessment/Impact/@severity",
+        "srcip": "/Alert/Source[]/Node/Address/address",
+        "srcport": "/Alert/Source[-1]/Service/port",
+        "dstip": "/Alert/Target[]/Node/Address/address",
+        "dstport": "/Alert/Target[-1]/Service/port",
+        "ident": "/Alert/Classification/@ident",
+        "msg": [("/Alert/AdditionalData[]/@type", "string"),
+                ("/Alert/AdditionalData[-1]/@meaning", "RawLog"),
+                ("/Alert/AdditionalData[-1]/string", PLACEHOLDER)],
+        "clstext": "/Alert/Classification/@text",
+    }
+
+    def batch(self, model, size):
+        idmef_batch = []
+
+        for _ in range(size):
+            idmef = []
+            for key, value in model.next().items():
+                idmef.extend(self._get_key_value_tuples(key, value))
+
+            metadata = self._metadata()
+
+            idmef_batch.append((metadata, idmef))
+
+        return pickle.dumps(idmef_batch)
+
+    def _get_key_value_tuples(self, key, value):
+        tuples = []
+
+        new_key = self.idmef_paths.get(key)
+        if new_key is not None:
+            if isinstance(new_key, str):
+                tuples.append((new_key, value))
+            else:
+                for tuple_key, tuple_value in new_key:
+                    if tuple_value is self.PLACEHOLDER:
+                        tuple_value = value
+                    tuples.append((tuple_key, tuple_value))
+        else:
+            tuples.extend([("/Alert/AdditionalData[]/@type", "string"),
+                          ("/Alert/AdditionalData[-1]/@meaning", key),
+                          ("/Alert/AdditionalData[-1]/string", value)])
+
+        return tuples
+
+    @classmethod
+    def _metadata(cls):
+        now = time.time()
+        ts = int(now)
+        ms = int((now % 1) * 1000000)
+        dt = datetime.datetime.fromtimestamp(now).astimezone()
+
+        _id = struct.pack(">I", ts)
+        _id += os.urandom(5)
+        with cls.time_id_counter.get_lock():
+            _id += struct.pack(">I", cls.time_id_counter.value)[1:4]
+            cls.time_id_counter.value += 1
+            if cls.time_id_counter.value < 0:
+                cls.time_id_counter.value = 0
+
+        _id = binascii.hexlify(_id).decode()
+
+        return {"_id": _id, "_ts": ts, "_ms": ms,
+                "timestamp": dt, "isotime": dt.isoformat()}
+
+
 def get_formats():
     """
     Returns a singleton instance of Formats class in which all the
@@ -207,6 +298,7 @@ def get_formats():
     _formats.register("headered-csv", HeaderedCSVFormat)
     _formats.register("batch-headered-csv", BatchHeaderedCSVFormat)
     _formats.register("sql", SqlFormat)
+    _formats.register("pickled-idmef", PickledIDMEF)
 
     return _formats
 
