@@ -19,6 +19,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="real-time streaming data generator")
 
+    format_group = parser.add_mutually_exclusive_group()
+
     parser.add_argument(
         "model", nargs="*", metavar="[I]model[R][bB]", default=["test"],
         help="create 'I' instances from the 'model' data model which should "
@@ -48,7 +50,7 @@ def main():
     parser.add_argument(
         "--progress", metavar="<N>", type=int, default=5,
         help="Show the progress every <N> seconds.")
-    parser.add_argument(
+    format_group.add_argument(
         "--output-format", choices=formats.formats_list(),
         default="json-lines",
         help="Set the output format for serialization.")
@@ -68,19 +70,22 @@ def main():
         be provieded. The output will use the same order as it is \
         provided here in the command-line so it could be used to set \
         the csv columns order.")
+    format_group.add_argument(
+        "--rawlog", action="store_true",
+        help="Equivalent to --filter=msg --format=csv.")
     parser.add_argument(
         "--bootstrap-servers", metavar="<addr>", type=str,
         dest="bootstrap_servers",
         help="used with kafka media, a comma seperated list \
-            determines servers addresses.")
+        determines servers addresses.")
     parser.add_argument(
         "--topic", metavar="<t>", type=str, dest="topic",
         help="used with kafka media, determines the topic.")
     parser.add_argument(
-        "--force-flush", action='store_true',
+        "--force-flush", action="store_true",
         dest="force_flush",
         help="used with kafka media, force to flush kafka producer for \
-            each batch, may have bad effect of performance.")
+        each batch, may have bad effect of performance.")
     parser.add_argument(
         "--output-file-name", metavar="<file>", default="-",
         type=argparse.FileType("w"), dest="output_file",
@@ -89,43 +94,44 @@ def main():
         "--dir-name", metavar="<dir>", default="avalon-output",
         type=str, dest="dir_path",
         help="Used with directory media, \
-            determines the directory relative name.")
+        determines the directory relative name.")
     parser.add_argument(
         "--tmp-dir-name", metavar="<dir>", type=str, dest="tmp_dir_path",
         help="Used with directory media, \
-            activate tmp directory and determines the directory relative name.\
-             files are created in this first and then moved (renamed) to the \
-            destination directory. this directory and the main directory \
-            specified with '--dir-name' should be in same mount point \
-            to avoid copy and extra write operation.")
+        activate tmp directory and determines the directory relative name.\
+        files are created in this first and then moved (renamed) to the \
+        destination directory. this directory and the main directory \
+        specified with '--dir-name' should be in same mount point \
+        to avoid copy and extra write operation.")
     parser.add_argument(
-        "--blocking-max-files", action='store_true', 
+        "--blocking-max-files", action="store_true",
         dest="dir_blocking_enable",
         help="Used with directory media, \
-            blocks avalon when directory file count bigger than '--max-files' \
-            and wait until some files be deleted by an exteral entity.")
+        blocks avalon when directory file count bigger than '--max-files' \
+        and wait until some files be deleted by an exteral entity.")
     parser.add_argument(
         "--max-files", metavar="<N>", type=int, dest="max_file_count",
         default=0,
         help="used with directory media, determines maximum file \
-            count in directory, old files will be truncated to zero \
-            (or remove if value is negative). this value in not accurate and \
-            max count of directory files \
-            can be in range [<N>, <N> + instances_count - 1]")
+        count in directory, old files will be truncated to zero \
+        (or remove if value is negative). this value in not accurate and \
+        max count of directory files \
+        can be in range [<N>, <N> + instances_count - 1]")
     parser.add_argument(
-        "--ordered-name", action='store_true', dest="ordered_mode",
+        "--ordered-name", action="store_true", dest="ordered_mode",
         help="used with directory media, choose name using global \
-            index (between avalon instances) and ensures \
-            file with lower index is older than biger one. this needs some \
-            inter process lock so it has more overhead \
-            in compared with 'unordered mode'")
+        index (between avalon instances) and ensures \
+        file with lower index is older than biger one. this needs some \
+        inter process lock so it has more overhead \
+        in compared with 'unordered mode'")
     parser.add_argument(
         "--suffix", metavar="<suffix>", type=str, dest="suffix",
         help="used with directory media, determines output files' suffix.")
     parser.add_argument(
         "--dsn", metavar="<DSN>", type=str, dest="dsn",
         help="used with SQL media, determines database 'Data source name'. \
-        this should be in form of 'dialect[+driver]://user:password@host/dbname'")
+        this should be in form of \
+        'dialect[+driver]://user:password@host/dbname'")
     parser.add_argument(
         "--table-name", metavar="<tbl>", type=str, dest="table_name",
         help="used with SQL media, determines database table name. \
@@ -159,8 +165,33 @@ def main():
         sys.stderr.write("\n")
         exit(0)
 
+    if args.rawlog:
+        if args.filters:
+            sys.stderr.write(
+                "WARNING: filter argument will be ignored when output format"
+                "is rawlog.\n")
+
+        args.output_format = "csv"
+        args.filters = ["msg"]
+
     filters = [i.split(",") for i in args.filters]
     filters = sum(filters, [])  # flatten the list
+
+    if args.output_media == "sql":
+        if not args.table_name:
+            parser.error(
+                "The --table-name argument must be specified if the output "
+                "media is 'sql'\n")
+        if not args.dsn:
+            parser.error(
+                "The --dsn argument must be specified if the output "
+                "media is 'sql'\n")
+
+        if args.output_format != "sql":
+            args.output_format = "sql"
+            sys.stderr.write(
+                "WARNING: Output format changed to 'sql' because output media "
+                "is 'sql'\n")
 
     _format = formats.format(args.output_format, filters=filters)
 

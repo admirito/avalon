@@ -40,9 +40,12 @@ class BaseFormat:
     arguments. The BaseFormat will only store the "filters" option as
     an attribute of the created object.
     """
+    class NOTSET:
+        pass
+
     def __init__(self, **kwargs):
         self.filters = kwargs.get("filters", [])
-        self.filters_nonexistent_default = Ellipsis
+        self.filters_nonexistent_default = self.NOTSET
 
     def apply_filters(self, model_data):
         """
@@ -52,7 +55,7 @@ class BaseFormat:
 
         return {key: model_data.get(key, self.filters_nonexistent_default)
                 for key in self.filters
-                if self.filters_nonexistent_default is not Ellipsis or
+                if self.filters_nonexistent_default is not self.NOTSET or
                 key in self.filters}
 
     def batch(self, model, size):
