@@ -198,11 +198,10 @@ class SqlMedia(BaseMedia):
         self._options = options
 
         # table_name should contain fields order like 'tb (a, b, c)'
-        self.table_params = re.findall(
-            r"[^\s\(\),]+", self._options["table_name"])
-        self.table = sqlalchemy.table(
-            self.table_params[0], 
-            *[sqlalchemy.column(x) for x in self.table_params[1:]])
+        self.table = self._options["table_name"]
+        self.table_params = re.findall(r"[^\s\(\),]+", self.table)
+        tmp_fields = ",".join([f"%({par})s" for par in self.table_params[1:]])
+        self.template_query =  f"INSERT INTO {self.table} VALUES ({tmp_fields})"
         self.con = None
 
     def _connect(self):
@@ -215,7 +214,7 @@ class SqlMedia(BaseMedia):
         # lazy connect to avoid multi-processing problems on connection
         if not self.con:
             self._connect()
-        self.con.execute(self.table.insert(), batch)
+        self.con.exec_driver_sql(self.template_query, batch)
     
     def __del__(self):
         if self.con:
