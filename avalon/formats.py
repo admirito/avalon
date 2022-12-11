@@ -60,6 +60,9 @@ class JsonLinesFormat(LineBaseFormat):
     """
     Serialize data by generating a JSON Object per line.
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
     def _to_line(self, item):
         return json.dumps(item, default=str)
 

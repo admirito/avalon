@@ -3,21 +3,21 @@ continuous_flow_prob = 0.3
 update_flow_prob = 0.5
 
 ip_range = (0, 0xffffffff)
-ip_norm_stddev = 2
+ip_norm_stddev = 100
 
 port_range = (0, 0xffff)
-port_norm_stddev = 2
+port_norm_stddev = 20
 
 l4_range = (0, 142)
-l4_norm_stddev = 2
+l4_norm_stddev = 6
 
 l7_range = (0, 2988)
-l7_norm_stddev = 2
+l7_norm_stddev = 20
 
 
 metadata_count_max = 30
 metadata_count_mean = 7
-metadata_stddev = 1
+metadata_stddev = 4
 
 default_metadata_values = ['python', 'C', 'java', 'C#', 'javascript', 'rust', 
     'ruby', 'php', 'Go', 'R', 'scala', 'swift',  'cpp', 'prolog', 'VHDL', 
