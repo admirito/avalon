@@ -1,15 +1,41 @@
 #!/usr/bin/env python3
 
+import html
 import multiprocessing
 import os
-import zlib
-import requests
-import sqlalchemy
-import psycopg2
-from psycopg2.extras import execute_values
 import re
-import kafka
-import clickhouse_connect
+import zlib
+
+try:
+    import kafka
+except ModuleNotFoundError:
+    pass
+
+try:
+    import requests
+except ModuleNotFoundError:
+    pass
+
+try:
+    import sqlalchemy
+except ModuleNotFoundError:
+    pass
+
+try:
+    import psycopg2
+    from psycopg2.extras import execute_values
+except ModuleNotFoundError:
+    pass
+
+try:
+    import clickhouse_connect
+except ModuleNotFoundError:
+    pass
+
+try:
+    import suds.client
+except ModuleNotFoundError:
+    pass
 
 from . import auxiliary
 
@@ -226,6 +252,51 @@ class SqlMedia(BaseMedia):
             self.con.close()
 
 
+class PsycopgMedia(SqlMedia):
+    """
+    Psycopg2 Media
+    """
+    def __init__(self, max_writers, **options):
+        super().__init__(max_writers, **options)
+        self.template_query =  f"INSERT INTO {self.table} VALUES %s"
+
+    def _connect(self):
+        self.con = psycopg2.connect(self._options['dsn'])
+        self.curser = self.con.cursor()
+
+    def _write(self, batch):
+        # lazy connect to avoid multi-processing problems on connection
+        if not self.con:
+            self._connect()
+        values = [[value for value in instance.values()] for instance in batch]
+        execute_values(self.curser, self.template_query, values)
+        self.con.commit()
+
+    def __del__(self):
+        if self.con:
+            self.con.commit()
+            self.con.close()
+
+
+class ClickHouseMedia(SqlMedia):
+    """
+    Clickhouse Media
+    """
+    def __init__(self, max_writers, **options):
+        super().__init__(max_writers, **options)
+
+    def _connect(self):
+        self.con = clickhouse_connect.get_client(
+            **eval("dict(%s)"% ",".join(self._options["dsn"].split())))
+
+    def _write(self, batch):
+        if not self.con:
+            self._connect()
+        values = [[value for value in instance.values()] for instance in batch]
+        self.con.insert(
+            self.table_params[0], values, column_names=self.table_params[1:])
+
+
 class KafkaMedia(BaseMedia):
     def __init__(self, max_writers, **options):
        super().__init__(max_writers, **options)
@@ -254,45 +325,71 @@ class KafkaMedia(BaseMedia):
             self._producer.flush(5)
 
 
-class PsycopgMedia(SqlMedia):
+class SOAPMedia(BaseMedia):
     """
-    Psycopg2 Media
-    """
-    def __init__(self, max_writers, **options):
-        super().__init__(max_writers, **options)
-        self.template_query =  f"INSERT INTO {self.table} VALUES %s"
+    SOAP (Simple Object Access Protocol) Medai (RFC 4227) based on
+    suds library.
 
-    def _connect(self):
-        self.con = psycopg2.connect(self._options['dsn'])
-        self.curser = self.con.cursor()
-        
-    def _write(self, batch):
-        # lazy connect to avoid multi-processing problems on connection
-        if not self.con:
-            self._connect()
-        values = [[value for value in instance.values()] for instance in batch]
-        execute_values(self.curser, self.template_query, values)
-        self.con.commit()
-    
-    def __del__(self):
-        if self.con:
-            self.con.commit()
-            self.con.close()
+    The SOAP method should accept a string for each batch.
 
-class ClickHouseMedia(SqlMedia):
+    Initialize keyword options:
+     - `wsdl_url`: (required) the URL for WSDL
+     - `method_name`: (required) the name of the method
+     - `location`: (required) the SOAP endpoint URL
+     - `timeout`: connection timeout
+     - `ignore_errors`: ignore connection/network errors
+     - `enable_cache`: if True (the default), the SOAP envelope will
+       be generated once and consecutive calls will reuse it.
     """
-    Clickhouse Media
-    """
+
     def __init__(self, max_writers, **options):
         super().__init__(max_writers, **options)
 
-    def _connect(self):
-        self.con = clickhouse_connect.get_client(
-            **eval("dict(%s)"% ",".join(self._options["dsn"].split())))
+        self.method_name = options["method_name"]
+        self.location = options["location"]
+        self.timeout = options.get("timeout", 10)
+        self.ignore_errors = options.get("ignore_errors", False)
+        self.enable_cache = options.get("enable_cache", True)
 
-    def _write(self, batch):
-        if not self.con:
-            self._connect()
-        values = [[value for value in instance.values()] for instance in batch]
-        self.con.insert(
-            self.table_params[0], values, column_names=self.table_params[1:])
+        self._suds_client = suds.client.Client(
+            url=options["wsdl_url"],
+            location=self.location)
+
+        self._suds_method = getattr(self._suds_client.service,
+                                    self.method_name)
+
+        # Create a SOAP envelope template so we can call requests.post
+        # instead of calling suds directory when cahce is enabled for
+        # better performance.
+        clientclass = self._suds_method.clientclass({})
+        client = clientclass(self._suds_method.client,
+                             self._suds_method.method)
+        binding = client.method.binding.input
+        template = "AVALON-SOAP-CACHE-TEMPLATE"
+        soapenv = binding.get_message(client.method,
+                                      (template,), {})
+        soapenv = soapenv.str().replace("{", "{{").replace("}", "}}")
+        soapenv = soapenv.replace(template, "{}")
+        self._soapenv_template = soapenv
+
+    def _write(self, batch: str):
+        soapenv = self._soapenv_template.format(html.escape(batch))
+
+        if self.enable_cache:
+            try:
+                resp = requests.post(
+                    self.location, timeout=self.timeout,
+                    data=soapenv.encode("utf8"),
+                    headers={"Content-Type": "text/xml; charset=utf-8",
+                             "Soapaction": f"urn:{self.method_name}"})
+                resp.raise_for_status()
+            except requests.exceptions.RequestException:
+                if not self.ignore_errors:
+                    raise
+        else:
+            try:
+                self._suds_method(soapenv)
+            except Exception:
+                if not self.ignore_errors:
+                    raise
+>>>>>>> 2117a47 (Add SOAP media)

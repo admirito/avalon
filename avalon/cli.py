@@ -55,10 +55,10 @@ def main():
         default="json-lines",
         help="Set the output format for serialization.")
     parser.add_argument(
-        "--output-media",
+        "--output-media", default="file",
         choices=["file", "http", "directory", "sql", "psycopg", "clickhouse",
-                 "kafka"],
-        default="file", help="Set the output media for transferring data.")
+                 "kafka", "soap"],
+        help="Set the output media for transferring data.")
     parser.add_argument(
         "--output-writers", metavar="<N>", type=int, default=4,
         help="Limit the maximum number of simultaneous output writers to <N>.")
@@ -147,6 +147,24 @@ def main():
     parser.add_argument(
         "--output-http-gzip", action="store_true",
         help="For http media, enable gzip compression.")
+    parser.add_argument(
+        "--soap-wsdl-url", metavar="<url>",
+        help="For soap media, use WSDL at <url>.")
+    parser.add_argument(
+        "--soap-location", metavar="<url>",
+        help="For soap media, send requests to <url>.")
+    parser.add_argument(
+        "--soap-method-name", metavar="<name>",
+        help="For soap media, use <name> as the name of the method to call.")
+    parser.add_argument(
+        "--soap-timeout", metavar="<n>", default=10, type=int,
+        help="For soap media, use <n> as the timeout value.")
+    parser.add_argument(
+        "--soap-ignore-errors", action="store_true",
+        help="For soap media, if set, ignore all the connection errors.")
+    parser.add_argument(
+        "--soap-disable-cache", action="store_true",
+        help="For soap media, disable envelope caching.")
     parser.add_argument(
         "--list-models", action="store_true",
         help="Print the list of available data models and exit.")
@@ -272,6 +290,29 @@ def main():
             topic=args.topic,
             force_flush=args.force_flush
         )
+    elif args.output_media == "soap":
+        if not args.soap_wsdl_url:
+            parser.error(
+                "The --soap-wsdl-url argument must be specified if the output "
+                "media is 'soap'\n")
+        if not args.soap_method_name:
+            parser.error(
+                "The --soap-method-name argument must be specified if the "
+                "output media is 'soap'\n")
+        if not args.soap_location:
+            parser.error(
+                "The --soap-location argument must be specified if the output "
+                "media is 'soap'\n")
+
+        media = mediums.SOAPMedia(
+            max_writers=args.output_writers,
+            wsdl_url=args.soap_wsdl_url,
+            method_name=args.soap_method_name,
+            location=args.soap_location,
+            timeout=args.soap_timeout,
+            ignore_errors=args.soap_ignore_errors,
+            enable_cache=not args.soap_disable_cache,
+            )
 
     processor = processors.Processor(batch_generators, media, args.rate,
                                      args.number, args.duration)
