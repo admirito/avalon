@@ -5,6 +5,8 @@ import os
 import zlib
 import requests
 import sqlalchemy
+import psycopg2
+from psycopg2.extras import execute_values
 import re
 import kafka
 
@@ -247,3 +249,34 @@ class KafkaMedia(BaseMedia):
     def __del__(self):
         if self._producer:
             self._producer.flush(5)
+
+
+class PsycopgMedia(BaseMedia):
+    """
+    Psycopg2 Media
+    """
+    def __init__(self, max_writers, **options):
+        super().__init__(max_writers, **options)
+        self._options = options
+
+        # table_name should contain fields order like 'tb (a, b, c)'
+        self.table = self._options["table_name"]
+        self.template_query =  f"INSERT INTO {self.table} VALUES %s"
+        self.con = None
+
+    def _connect(self):
+        self.con = psycopg2.connect(self._options['dsn'])
+        self.curser = self.con.cursor()
+        
+    def _write(self, batch):
+        # lazy connect to avoid multi-processing problems on connection
+        if not self.con:
+            self._connect()
+        values = [[value for value in instance.values()] for instance in batch]
+        execute_values(self.curser, self.template_query, values)
+        self.con.commit()
+    
+    def __del__(self):
+        if self.con:
+            self.con.commit()
+            self.con.close()

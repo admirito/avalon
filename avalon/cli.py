@@ -52,7 +52,7 @@ def main():
         help="Set the output format for serialization.")
     parser.add_argument(
         "--output-media", 
-        choices=["file", "http", "directory", "sql", "kafka"],
+        choices=["file", "http", "directory", "sql", "kafka", "psycopg"],
         default="file", help="Set the output media for transferring data.")
     parser.add_argument(
         "--output-writers", metavar="<N>", type=int, default=4,
@@ -121,7 +121,8 @@ def main():
         this name should contain fields order for exmaple 'tbl (a, b, c)'")
     parser.add_argument(
         "--autocommit", action="store_true", dest="autocommit",
-        help="used with SQL media, enables query autocommit.")
+        help="used with SQL media, enables query autocommit\
+             (is not valid for psycopg media).")
     parser.add_argument(
         "--output-http-url", metavar="<url>",
         default="http://localhost:8081/mangolc",
@@ -215,7 +216,13 @@ def main():
             bootstrap_servers=args.bootstrap_servers,
             topic=args.topic,
             force_flush=args.force_flush
-    )
+        )
+    elif args.output_media == "psycopg":
+        media = mediums.PsycopgMedia(
+            max_writers=args.output_writers,
+            table_name=args.table_name,
+            dsn=args.dsn
+        )
 
 
     processor = processors.Processor(batch_generators, media, args.rate,
