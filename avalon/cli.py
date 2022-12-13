@@ -8,6 +8,7 @@ import sys
 from . import __version__
 from . import formats
 from . import mediums
+from . import mappings
 from . import models
 from . import processors
 
@@ -22,13 +23,15 @@ def main():
     format_group = parser.add_mutually_exclusive_group()
 
     parser.add_argument(
-        "model", nargs="*", metavar="[I]model[R][bB]", default=["test"],
+        "model", nargs="*", metavar="[I]model[R][bB][{mapping,...}]",
+        default=["test"],
         help="create 'I' instances from the 'model' data model which should "
         "generate the 'R' ratio from the total output with the 'B' batch size "
         "e.g. '10snort1000b100' which means 10 instances of snort model with "
         "1000 ratio (compared to other instances of models) with batch size "
         "of 100. The data will be generated based on the specified "
-        "composition.")
+        "composition. An optional comma seperated list of mappings inside "
+        "braces could also be defined at the end of each expression.")
     parser.add_argument(
         "--metadata-file", metavar="<file>", type=str,
         default=os.path.join(os.path.dirname(__file__), "models", "rflowdata",
@@ -70,6 +73,11 @@ def main():
         be provieded. The output will use the same order as it is \
         provided here in the command-line so it could be used to set \
         the csv columns order.")
+    parser.add_argument(
+        "--map", type=str, action="append", dest="mappings", default=[],
+        metavar=f"{{{','.join(mappings.mappings_list())},[custom url]}}",
+        help="Map the model output with the specified map. This argument "
+        "could be used multiple times.")
     format_group.add_argument(
         "--rawlog", action="store_true",
         help="Equivalent to --filter=msg --format=csv.")
@@ -217,16 +225,23 @@ def main():
 
     for model_str in args.model:
         model_match = re.match(
-            r"(?:(\d+))?([A-Za-z_]+)(?:(\d+))?(?:b(\d+))?",
+            r"(?:(\d+))?([A-Za-z_]+)(?:(\d+))?(?:b(\d+))?(?:{([^}]+)})?",
             model_str)
         if not model_match:
             sys.stderr.write(f"Invalid syntax: {model_str}\n")
             exit(1)
 
-        instances, model_name, ratio, batch_size = model_match.groups()
+        instances, model_name, ratio, batch_size, mapping_names = \
+            model_match.groups()
         if model_name not in models.models_list():
             sys.stderr.write(f"Invalid model: {model_name}\n")
             exit(1)
+
+        mapping_names = mapping_names.split(",") if mapping_names else []
+        applied_mappings = [mappings.get_mappings().mapping(mapping_name)
+                            for mapping_name in mapping_names]
+        applied_mappings += [mappings.get_mappings().mapping(mapping_name)
+                             for mapping_name in args.mappings]
 
         instances = int(instances) if instances is not None else 1
         ratio = int(ratio) if ratio is not None else None
@@ -236,10 +251,15 @@ def main():
         # All instances together should generate the ratio
         ratio = ratio / instances if ratio is not None else None
 
-        models_options = {"metadata_file_name" : args.metadata_file_name}
+        models_options = {"metadata_file_name": args.metadata_file_name}
+        model = models.model(model_name, **models_options)
+
+        for mapping in applied_mappings:
+            model = mapping.map_model(model)
+
         batch_generators.extend(
             processors.BatchGenerator(
-                models.model(model_name, **models_options),
+                model,
                 _format, batch_size, ratio)
             for _ in range(instances))
 

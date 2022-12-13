@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import binascii
 import csv
 import ctypes
 import datetime
@@ -8,12 +7,13 @@ import io
 import itertools
 import json
 import multiprocessing
-import os
 import pickle
 import socket
 import struct
 import time
 from xml.sax.saxutils import escape as xmlescape
+
+from . import auxiliary
 
 
 class Formats:
@@ -211,16 +211,7 @@ class IDMEFBaseFormat(BaseFormat):
         ts = int(now)
         ms = int((now % 1) * 1000000)
         dt = datetime.datetime.fromtimestamp(now).astimezone()
-
-        _id = struct.pack(">I", ts)
-        _id += os.urandom(5)
-        with cls.time_id_counter.get_lock():
-            _id += struct.pack(">I", cls.time_id_counter.value)[1:4]
-            cls.time_id_counter.value += 1
-            if cls.time_id_counter.value < 0:
-                cls.time_id_counter.value = 0
-
-        _id = binascii.hexlify(_id).decode()
+        _id = auxiliary.new_oid(ts)
 
         return {"_id": _id, "_ts": ts, "_ms": ms,
                 "timestamp": dt, "isotime": dt.isoformat()}

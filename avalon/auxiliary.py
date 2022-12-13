@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 
+import binascii
 import fcntl
 import fnmatch
 import importlib
+import multiprocessing
 import os
 import re
 import signal
+import struct
+import time
 
 
 class DirectoryNotifier:
@@ -96,3 +100,24 @@ def importall(package, pattern="*.py"):
             pass
 
     return result
+
+
+# a counter used by new_oid method
+_time_id_counter = multiprocessing.Value("i")
+
+
+def new_oid(ts=None):
+    """
+    Generate a unique 24 character string
+    """
+    ts = int(time.time()) if ts is None else int(ts)
+
+    _id = struct.pack(">I", ts)
+    _id += os.urandom(5)
+    with _time_id_counter.get_lock():
+        _id += struct.pack(">I", _time_id_counter.value)[1:4]
+        _time_id_counter.value += 1
+        if _time_id_counter.value < 0:
+            _time_id_counter.value = 0
+
+    return binascii.hexlify(_id).decode()
