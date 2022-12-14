@@ -52,7 +52,8 @@ def main():
         help="Set the output format for serialization.")
     parser.add_argument(
         "--output-media", 
-        choices=["file", "http", "directory", "sql", "kafka", "psycopg"],
+        choices=["file", "http", "directory", "sql",\
+             "kafka", "psycopg", "clickhouse"],
         default="file", help="Set the output media for transferring data.")
     parser.add_argument(
         "--output-writers", metavar="<N>", type=int, default=4,
@@ -218,6 +219,12 @@ def main():
             force_flush=args.force_flush
         )
     elif args.output_media == "psycopg":
+        media = mediums.PsycopgMedia(
+            max_writers=args.output_writers,
+            table_name=args.table_name,
+            dsn=args.dsn
+        )
+    elif args.output_media == "clickhouse":
         media = mediums.PsycopgMedia(
             max_writers=args.output_writers,
             table_name=args.table_name,

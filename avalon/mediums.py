@@ -9,6 +9,7 @@ import psycopg2
 from psycopg2.extras import execute_values
 import re
 import kafka
+import clickhouse_connect
 
 from . import auxiliary
 
@@ -280,3 +281,19 @@ class PsycopgMedia(BaseMedia):
         if self.con:
             self.con.commit()
             self.con.close()
+
+class ClickHouseMedia(SqlMedia):
+    """
+    Clickhouse Media
+    """
+    def __init__(self, max_writers, **options):
+        super().__init__(max_writers, **options)
+
+    def _connect(self):
+        self.con = clickhouse_connect.get_client(
+            eval("dict(%s)"% ",".join(self._options["dns"].split())))
+
+    def _write(self, batch):
+        if not self.con:
+            self._connect()
+        self.con.insert(self.table, batch)
