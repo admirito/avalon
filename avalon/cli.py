@@ -60,7 +60,7 @@ def main():
     parser.add_argument(
         "--output-media", default="file",
         choices=["file", "http", "directory", "sql", "psycopg", "clickhouse",
-                 "kafka", "soap", "grpc"],
+                 "kafka", "soap", "grpc", "syslog"],
         help="Set the output media for transferring data.")
     parser.add_argument(
         "--output-writers", metavar="<N>", type=int, default=4,
@@ -187,6 +187,17 @@ def main():
         "--grpc-proto", metavar="<file>", type=argparse.FileType("rb"),
         help="For grpc media, Use proto <file> to create grpc stubs instead of \
         using reflection.")
+    parser.add_argument(
+        "--syslog-address", metavar="<address>", default="/dev/log",
+        help="For syslog media, send data to <address>. It could be host:port \
+        or path to syslog socket")
+    parser.add_argument(
+        "--syslog-level", metavar="<level>", default="info",
+        choices=["debug", "info", "warn", "error", "fatal"],
+        help="For syslog media, set the logging level to <level>.")
+    parser.add_argument(
+        "--syslog-tag", metavar="<name>", default="avalon",
+        help="For syslog media, set the tag to <name>.")
     parser.add_argument(
         "--list-models", action="store_true",
         help="Print the list of available data models and exit.")
@@ -368,6 +379,12 @@ def main():
             endpoint=args.grpc_endpoint,
             method_name=args.grpc_method_name,
             proto=getattr(args.grpc_proto, "name", None),
+            **common_media_kwargs)
+    elif args.output_media == "syslog":
+        media = mediums.SyslogMedia(
+            address=args.syslog_address,
+            level=args.syslog_level,
+            tag=args.syslog_tag,
             **common_media_kwargs)
 
     processor = processors.Processor(batch_generators, media, args.rate,
