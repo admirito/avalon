@@ -60,11 +60,14 @@ def main():
     parser.add_argument(
         "--output-media", default="file",
         choices=["file", "http", "directory", "sql", "psycopg", "clickhouse",
-                 "kafka", "soap"],
+                 "kafka", "soap", "grpc"],
         help="Set the output media for transferring data.")
     parser.add_argument(
         "--output-writers", metavar="<N>", type=int, default=4,
         help="Limit the maximum number of simultaneous output writers to <N>.")
+    parser.add_argument(
+        "--media-ignore-errors", action="store_true",
+        help="Ignore errors while sending data over media.")
     parser.add_argument(
         "--filter", metavar="<keys>", type=str, action="append",
         dest="filters", default=[],
@@ -174,6 +177,17 @@ def main():
         "--soap-disable-cache", action="store_true",
         help="For soap media, disable envelope caching.")
     parser.add_argument(
+        "--grpc-endpoint", metavar="<endpoint>",
+        help="For grpc media, send requests to <endpoint>.")
+    parser.add_argument(
+        "--grpc-method-name", metavar="<fullname>",
+        help="For grpc media, use <fullname> as the name of the method to \
+        call.")
+    parser.add_argument(
+        "--grpc-proto", metavar="<file>", type=argparse.FileType("rb"),
+        help="For grpc media, Use proto <file> to create grpc stubs instead of \
+        using reflection.")
+    parser.add_argument(
         "--list-models", action="store_true",
         help="Print the list of available data models and exit.")
     parser.add_argument(
@@ -219,6 +233,13 @@ def main():
                 "WARNING: Output format changed to 'sql' because output media "
                 "is 'sql'\n")
 
+    if args.output_media == "grpc":
+        if args.output_format != "grpc":
+            args.output_format = "grpc"
+            sys.stderr.write(
+                "WARNING: Output format changed to 'grpc' because output "
+                "media is 'grpc'\n")
+
     _format = formats.format(args.output_format, filters=filters)
 
     batch_generators = []
@@ -255,6 +276,9 @@ def main():
         model = models.model(model_name, **models_options)
 
         for mapping in applied_mappings:
+            # let the mappings to access avalon cli arguments
+            mapping.avalon_args = args
+
             model = mapping.map_model(model)
 
         batch_generators.extend(
@@ -263,53 +287,51 @@ def main():
                 _format, batch_size, ratio)
             for _ in range(instances))
 
+    common_media_kwargs = {"max_writers": args.output_writers,
+                           "ignore_errors": args.media_ignore_errors}
+
     if args.output_media == "file":
         media = mediums.FileMedia(
-            max_writers=args.output_writers,
-            file=args.output_file)
+            file=args.output_file,
+            **common_media_kwargs)
     elif args.output_media == "http":
         media = mediums.SingleHTTPRequest(
-            max_writers=args.output_writers,
             url=args.output_http_url,
-            gzip=args.output_http_gzip)
+            gzip=args.output_http_gzip,
+            **common_media_kwargs)
     elif args.output_media == "directory":
         media = mediums.DirectoryMedia(
-            max_writers=args.output_writers,
             directory=args.dir_path,
             suffix=args.suffix,
             max_file_count=args.max_file_count,
             tmp_dir_path=args.tmp_dir_path,
             dir_blocking_enable=args.dir_blocking_enable,
             ordered_mode=args.ordered_mode,
-            instances=instances
-        )
+            instances=instances,
+            **common_media_kwargs)
     elif args.output_media == "sql":
         media = mediums.SqlMedia(
-            max_writers=args.output_writers,
             table_name=args.table_name,
             dsn=args.dsn,
-            autocommit=args.autocommit
-        )
+            autocommit=args.autocommit,
+            **common_media_kwargs)
     elif args.output_media == "psycopg":
         media = mediums.PsycopgMedia(
-            max_writers=args.output_writers,
             table_name=args.table_name,
-            dsn=args.dsn
-        )
+            dsn=args.dsn,
+            **common_media_kwargs)
     elif args.output_media == "clickhouse":
         media = mediums.ClickHouseMedia(
-            max_writers=args.output_writers,
             table_name=args.table_name,
-            dsn=args.dsn
-        )
+            dsn=args.dsn,
+            **common_media_kwargs)
     elif args.output_media == "kafka":
         media = mediums.KafkaMedia(
-            max_writers=args.output_writers,
             instances=instances,
             bootstrap_servers=args.bootstrap_servers,
             topic=args.topic,
-            force_flush=args.force_flush
-        )
+            force_flush=args.force_flush,
+            **common_media_kwargs)
     elif args.output_media == "soap":
         if not args.soap_wsdl_url:
             parser.error(
@@ -325,14 +347,28 @@ def main():
                 "media is 'soap'\n")
 
         media = mediums.SOAPMedia(
-            max_writers=args.output_writers,
             wsdl_url=args.soap_wsdl_url,
             method_name=args.soap_method_name,
             location=args.soap_location,
             timeout=args.soap_timeout,
             ignore_errors=args.soap_ignore_errors,
             enable_cache=not args.soap_disable_cache,
-            )
+            **common_media_kwargs)
+    elif args.output_media == "grpc":
+        if not args.grpc_endpoint:
+            parser.error(
+                "The --grpc-endpoint argument must be specified if the output "
+                "media is 'grpc'\n")
+        if not args.grpc_method_name:
+            parser.error(
+                "The --grpc-method-name argument must be specified if the "
+                "output media is 'grpc'\n")
+
+        media = mediums.GRPCMedia(
+            endpoint=args.grpc_endpoint,
+            method_name=args.grpc_method_name,
+            proto=getattr(args.grpc_proto, "name", None),
+            **common_media_kwargs)
 
     processor = processors.Processor(batch_generators, media, args.rate,
                                      args.number, args.duration)

@@ -187,15 +187,30 @@ class HeaderedCSVFormat(BatchHeaderedCSVFormat):
         return CSVFormat.batch(self, model, size)
 
 
-class SqlFormat(BaseFormat):
+class ListFormat(BaseFormat):
+    """
+    Serialize data as a Python list
+    """
+    def batch(self, model, size):
+        """
+        Call model next method `size` times and return it as a
+        list.
+        """
+        return [self.apply_filters(model.next()) for _ in range(size)]
+
+
+class SQLFormat(ListFormat):
     """
     Creates SQL insert query values from dictionaries
     """
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+    pass
 
-    def batch(self, model, size):
-        return [self.apply_filters(model.next()) for _ in range(size)]
+
+class GRPCFormat(ListFormat):
+    """
+    Creates GRPC batches i.e. a list of dictionaries
+    """
+    pass
 
 
 class IDMEFBaseFormat(BaseFormat):
@@ -493,7 +508,8 @@ def get_formats():
     _formats.register("csv", CSVFormat)
     _formats.register("headered-csv", HeaderedCSVFormat)
     _formats.register("batch-headered-csv", BatchHeaderedCSVFormat)
-    _formats.register("sql", SqlFormat)
+    _formats.register("sql", SQLFormat)
+    _formats.register("grpc", GRPCFormat)
     _formats.register("idmef", IDMEFFormat)
     _formats.register("correlated-idmef", CorrelatedIDMEFFormat)
     _formats.register("pickled-idmef", PickledIDMEFFormat)

@@ -9,6 +9,11 @@ import time
 import types
 import urllib
 
+try:
+    import grpc_requests
+except ModuleNotFoundError:
+    pass
+
 from . import auxiliary
 from . import models
 
@@ -61,6 +66,7 @@ class Mappings:
                 if not issubclass(cls, BaseMapping):
                     cls = type(f"{cls.__name__}BasedOnBaseMapping",
                                (cls, BaseMapping), {})
+
                 return cls(**kwargs)
 
         raise ValueError(f"No class with a map method found in {mapping_name}")
@@ -114,6 +120,16 @@ class RFlowProtoMapping(BaseMapping):
         item["l4_protocol"] = item.pop("protocol_l4", 0)
         item["l7_protocol"] = item.pop("protocol_l7", 0)
 
+        item["packets_no_send"] = item.pop("packet_no_send", 0)
+        item["packets_no_recv"] = item.pop("packet_no_recv", 0)
+
+        item["flow_terminated"] = item.pop("is_terminated", 0)
+
+        item["proto_data_send"] = {
+            "tcp_flags": item.pop("proto_flags_send", 0)}
+        item["proto_data_recv"] = {
+            "tcp_flags": item.pop("proto_flags_recv", 0)}
+
         item["src_ip"] = int(ipaddress.IPv4Address(item.pop("srcip", 0)))
         item["src_port"] = item.pop("srcport", 0)
         item["dest_ip"] = int(ipaddress.IPv4Address(item.pop("destip", 0)))
@@ -127,6 +143,44 @@ class RFlowProtoMapping(BaseMapping):
 
         item["metadata"] = {key: {"values": {value: {"sequences": [1]}}}
                             for key, value in item.get("metadata", {}).items()}
+
+        return item
+
+
+class RFlowHelloGRPCSensorIDMapping(BaseMapping):
+    """
+    Add a sensor_id to the model data by calling "Hello" method of
+    the GRPC endpoint provided by the avalon CLI.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.sensor_id = None
+
+    def get_sensor_id(self):
+        """
+        This mehtod when called for the first time will call the
+        "Hello" method of the GRPC endpoint and retrieve the
+        "sensor_id" key from the returned value. On the consecutive
+        calls the same sensor_id will be returned.
+        """
+        if self.sensor_id is not None:
+            return self.sensor_id
+
+        endpoint = self.avalon_args.grpc_endpoint
+        service = self.avalon_args.grpc_method_name.rsplit(".", 1)[0]
+
+        self.client = grpc_requests.Client.get_by_endpoint(endpoint)
+        result = self.client.request(service, "Hello", {
+            "version": 1,
+            "info": {"name": "Avalon", "flow_type": 100, "id_session": 1}})
+
+        self.sensor_id = result["sensor_id"]
+
+        return self.sensor_id
+
+    def map(self, item):
+        item["sensor_id"] = self.get_sensor_id()
         return item
 
 
@@ -168,6 +222,7 @@ def get_mappings():
         _mappings = Mappings()
 
     _mappings.register("rflowproto", RFlowProtoMapping)
+    _mappings.register("rflowhello", RFlowHelloGRPCSensorIDMapping)
     _mappings.register("logproto", LogProtoMapping)
 
     return _mappings
