@@ -3,6 +3,8 @@
 import datetime
 import inspect
 import ipaddress
+import json
+import multiprocessing
 import pathlib
 import re
 import time
@@ -106,6 +108,46 @@ class BaseMapping:
         Returns the mapped item. This method should be overridden
         in the subclasses.
         """
+        return item
+
+
+class JsonColumnMapping(BaseMapping):
+    """
+    Transfrom the model data to three columns:
+     - dt  : current date time as unix timestamp
+     - _ix : counter
+    - json : all the data as a json
+    """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self._ix = multiprocessing.Value("I")
+
+    def map(self, item):
+        with self._ix:
+            new_item = {
+                "dt": time.time(),
+                "_ix": self._ix.value,
+                "json": json.dumps(item),
+            }
+            self._ix.value += 1
+
+        return new_item
+
+
+class DtToIsoMapping(BaseMapping):
+    """
+    Convert dt column from unix timestamp to iso format with time
+    zone.
+    """
+    def map(self, item):
+        dt = item.get("dt")
+        if dt is not None:
+            try:
+                item["dt"] = datetime.datetime.fromtimestamp(
+                    dt).astimezone().isoformat()
+            except Exception:
+                pass
         return item
 
 
@@ -221,6 +263,8 @@ def get_mappings():
     except NameError:
         _mappings = Mappings()
 
+    _mappings.register("jsoncolumn", JsonColumnMapping)
+    _mappings.register("dttoiso", DtToIsoMapping)
     _mappings.register("rflowproto", RFlowProtoMapping)
     _mappings.register("rflowhello", RFlowHelloGRPCSensorIDMapping)
     _mappings.register("logproto", LogProtoMapping)
