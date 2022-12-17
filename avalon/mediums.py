@@ -252,18 +252,13 @@ class KafkaMedia(BaseMedia):
             self._producer.flush(5)
 
 
-class PsycopgMedia(BaseMedia):
+class PsycopgMedia(SqlMedia):
     """
     Psycopg2 Media
     """
     def __init__(self, max_writers, **options):
         super().__init__(max_writers, **options)
-        self._options = options
-
-        # table_name should contain fields order like 'tb (a, b, c)'
-        self.table = self._options["table_name"]
         self.template_query =  f"INSERT INTO {self.table} VALUES %s"
-        self.con = None
 
     def _connect(self):
         self.con = psycopg2.connect(self._options['dsn'])
