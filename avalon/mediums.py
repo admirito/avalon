@@ -291,9 +291,11 @@ class ClickHouseMedia(SqlMedia):
 
     def _connect(self):
         self.con = clickhouse_connect.get_client(
-            eval("dict(%s)"% ",".join(self._options["dns"].split())))
+            **eval("dict(%s)"% ",".join(self._options["dsn"].split())))
 
     def _write(self, batch):
         if not self.con:
             self._connect()
-        self.con.insert(self.table, batch)
+        values = [[value for value in instance.values()] for instance in batch]
+        self.con.insert(
+            self.table_params[0], values, column_names=self.table_params[1:])

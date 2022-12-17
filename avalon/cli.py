@@ -225,7 +225,7 @@ def main():
             dsn=args.dsn
         )
     elif args.output_media == "clickhouse":
-        media = mediums.PsycopgMedia(
+        media = mediums.ClickHouseMedia(
             max_writers=args.output_writers,
             table_name=args.table_name,
             dsn=args.dsn
