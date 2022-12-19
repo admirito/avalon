@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
+import ctypes
 import datetime
 import inspect
 import ipaddress
 import json
-import multiprocessing
+import os
 import pathlib
-import random
 import re
 import time
 import types
@@ -122,47 +122,59 @@ class JsonColumnMapping(BaseMapping):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        # Although by using an inter-process lock we could be sure the
-        # _ix value will be unique (for a certain timestamp), but in
-        # practice it will deteriorate the throughput
-        # dramatically. Therefore we overcome the uniqueness problem
-        # by adding a random value to the counter later in the map
-        # method.
-        self._ix = multiprocessing.Value("I", lock=False)
+        self._prefix = None
+        self._counter = 0
 
     def map(self, item):
-        # First we use the unlocked counter and make sure it is
-        # between 1000_000_000 and 9999_000_000 and all the 6 value
-        # low digits is always zeros. Then, we add a random number to
-        # fill the 6 value low digits (to make sue it is unique in a
-        # certain micro second)
-        _ix = (1000 + self._ix.value) * 1_000_000 + random.randrange(
-            1_000_000)
-
-        self._ix.value = (self._ix.value + 1) % 9000
+        if self._prefix is None:
+            self._prefix = (os.getpid() % 0xFFFF << 16)
 
         new_item = {
-            "dt": time.time(),
-            "_ix": _ix,
+            "dt": datetime.datetime.now(),
+            "_ix": self._prefix + self._counter,
             "json": json.dumps(item),
         }
+
+        self._counter = (self._counter + 1) % 0xFFFF
 
         return new_item
 
 
+class Int32IxMapping(BaseMapping):
+    """
+    Transform the _ix column to a signed int32 (appropriate for
+    postgresql)
+    """
+    def map(self, item):
+        try:
+            item["_ix"] = ctypes.c_int32(item["_ix"]).value
+        except Exception:
+            pass
+        return item
+
+
 class DtToIsoMapping(BaseMapping):
     """
-    Convert dt column from unix timestamp to iso format with time
+    Convert columns from datetime to string iso format with time
     zone.
     """
     def map(self, item):
-        dt = item.get("dt")
-        if dt is not None:
-            try:
-                item["dt"] = datetime.datetime.fromtimestamp(
-                    dt).astimezone().isoformat()
-            except Exception:
-                pass
+        for key, value in item.items():
+            if isinstance(value, datetime.datetime):
+                item[key] = value.astimezone().isoformat()
+
+        return item
+
+
+class DtToTimestampMapping(BaseMapping):
+    """
+    Convert columns from datetime to unix timestamp.
+    """
+    def map(self, item):
+        for key, value in item.items():
+            if isinstance(value, datetime.datetime):
+                item[key] = value.timestamp()
+
         return item
 
 
@@ -279,7 +291,9 @@ def get_mappings():
         _mappings = Mappings()
 
     _mappings.register("jsoncolumn", JsonColumnMapping)
+    _mappings.register("int32ix", Int32IxMapping)
     _mappings.register("dttoiso", DtToIsoMapping)
+    _mappings.register("dttots", DtToTimestampMapping)
     _mappings.register("rflowproto", RFlowProtoMapping)
     _mappings.register("rflowhello", RFlowHelloGRPCSensorIDMapping)
     _mappings.register("logproto", LogProtoMapping)

@@ -6,6 +6,7 @@ import os
 import sys
 
 from . import __version__
+from . import auxiliary
 from . import formats
 from . import mediums
 from . import mappings
@@ -152,6 +153,10 @@ def main():
         help="used with SQL media, enables query autocommit\
              (is not valid for psycopg media).")
     parser.add_argument(
+        "--sql-driver-execute", action="store_true",
+        help="used with SQL media, enables sqlalchemy native driver execute \
+        to improve performance.")
+    parser.add_argument(
         "--output-http-url", metavar="<url>",
         default="http://localhost:8081/mangolc",
         help="For http media, use <url> to send output.")
@@ -216,6 +221,15 @@ def main():
         sys.stderr.write("\n")
         exit(0)
 
+    if (args.output_file.fileno() == sys.stdout.fileno() and
+            "b" not in args.output_file.mode):
+        # This is a workaround for older versions of python (before
+        # 3.10) in which the output_file will not be opened as
+        # "binary" for stdout by argparse, so we have to do it
+        # manually.
+        args.output_file = os.fdopen(args.output_file.fileno(), "wb",
+                                     closefd=False)
+
     if args.rawlog:
         if args.filters:
             sys.stderr.write(
@@ -228,21 +242,35 @@ def main():
     filters = [i.split(",") for i in args.filters]
     filters = sum(filters, [])  # flatten the list
 
-    if args.output_media == "sql":
+    dsn_dict = auxiliary.parse_db_url(args.dsn) if args.dsn else {}
+
+    if dsn_dict:
+        scheme = dsn_dict.pop("scheme")
+        if args.output_media not in ["sql", "psycopg", "clickhouse"]:
+            args.output_media = {
+                "clickhouse": "clickhouse",
+                "postgresql": "psycopg",
+            }.get(scheme, "sql")
+
+            sys.stderr.write(
+                f"NOTE: Output media changed to '{args.output_media}' "
+                f"according to the provided dsn.\n")
+
+    if args.output_media in ["sql", "psycopg", "clickhouse"]:
         if not args.table_name:
             parser.error(
-                "The --table-name argument must be specified if the output "
-                "media is 'sql'\n")
+                f"The --table-name argument must be specified if the output "
+                f"media is '{args.output_media}'\n")
         if not args.dsn:
             parser.error(
-                "The --dsn argument must be specified if the output "
-                "media is 'sql'\n")
+                f"The --dsn argument must be specified if the output "
+                f"media is '{args.output_media}'\n")
 
         if args.output_format != "sql":
             args.output_format = "sql"
             sys.stderr.write(
-                "WARNING: Output format changed to 'sql' because output media "
-                "is 'sql'\n")
+                f"NOTE: Output format changed to 'sql' because output "
+                f"media is '{args.output_media}'\n")
 
     if args.output_media == "grpc":
         if args.output_format != "grpc":
@@ -325,6 +353,7 @@ def main():
             table_name=args.table_name,
             dsn=args.dsn,
             autocommit=args.autocommit,
+            driver_execute=args.sql_driver_execute,
             **common_media_kwargs)
     elif args.output_media == "psycopg":
         media = mediums.PsycopgMedia(
@@ -334,7 +363,7 @@ def main():
     elif args.output_media == "clickhouse":
         media = mediums.ClickHouseMedia(
             table_name=args.table_name,
-            dsn=args.dsn,
+            dsn=dsn_dict or args.dsn,
             **common_media_kwargs)
     elif args.output_media == "kafka":
         media = mediums.KafkaMedia(

@@ -10,6 +10,7 @@ import re
 import signal
 import struct
 import time
+import urllib
 
 
 class DirectoryNotifier:
@@ -121,3 +122,42 @@ def new_oid(ts=None):
             _time_id_counter.value = 0
 
     return binascii.hexlify(_id).decode()
+
+
+def parse_db_url(url):
+    """
+    Given a database url
+    (e.g. postgresql://user:pass@host:5432/db) a dictionary will be
+    returned accordingly. The "scheme" key in the dictionary will
+    determine the database type and other parameters will be present
+    based on the URL and the scheme.
+    """
+    _url = urllib.parse.urlparse(url)
+
+    if not _url.scheme:
+        return {}
+
+    result = {"scheme": _url.scheme}
+
+    _netloc = re.match(r"((?P<username>[^:@]*)(:(?P<password>[^:@]*))?@)?"
+                       r"(?P<host>[^:@]*)(:(?P<port>\d+))?", _url.netloc)
+    if _netloc:
+        result.update({k: v for k, v in _netloc.groupdict().items()
+                       if v is not None})
+    else:
+        result["host"] = _url.netloc
+
+    if _url.path:
+        result["database"] = _url.path.lstrip("/")
+
+    if result["scheme"].startswith("postgre"):
+        if "database" in result:
+            result["dbname"] = result.pop("database")
+        if "username" in result:
+            result["user"] = result.pop("username")
+
+    if _url.query:
+        result.update(dict(tuple(i.split("=", 1) + [""])[:2]
+                           for i in _url.query.split("&")))
+
+    return result
