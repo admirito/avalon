@@ -9,6 +9,7 @@ import psycopg2
 from psycopg2.extras import execute_values
 import re
 import kafka
+import clickhouse_connect
 
 from . import auxiliary
 
@@ -251,18 +252,13 @@ class KafkaMedia(BaseMedia):
             self._producer.flush(5)
 
 
-class PsycopgMedia(BaseMedia):
+class PsycopgMedia(SqlMedia):
     """
     Psycopg2 Media
     """
     def __init__(self, max_writers, **options):
         super().__init__(max_writers, **options)
-        self._options = options
-
-        # table_name should contain fields order like 'tb (a, b, c)'
-        self.table = self._options["table_name"]
         self.template_query =  f"INSERT INTO {self.table} VALUES %s"
-        self.con = None
 
     def _connect(self):
         self.con = psycopg2.connect(self._options['dsn'])
@@ -280,3 +276,21 @@ class PsycopgMedia(BaseMedia):
         if self.con:
             self.con.commit()
             self.con.close()
+
+class ClickHouseMedia(SqlMedia):
+    """
+    Clickhouse Media
+    """
+    def __init__(self, max_writers, **options):
+        super().__init__(max_writers, **options)
+
+    def _connect(self):
+        self.con = clickhouse_connect.get_client(
+            **eval("dict(%s)"% ",".join(self._options["dsn"].split())))
+
+    def _write(self, batch):
+        if not self.con:
+            self._connect()
+        values = [[value for value in instance.values()] for instance in batch]
+        self.con.insert(
+            self.table_params[0], values, column_names=self.table_params[1:])
