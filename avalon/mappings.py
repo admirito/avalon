@@ -6,6 +6,7 @@ import ipaddress
 import json
 import multiprocessing
 import pathlib
+import random
 import re
 import time
 import types
@@ -121,16 +122,30 @@ class JsonColumnMapping(BaseMapping):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._ix = multiprocessing.Value("I")
+        # Although by using an inter-process lock we could be sure the
+        # _ix value will be unique (for a certain timestamp), but in
+        # practice it will deteriorate the throughput
+        # dramatically. Therefore we overcome the uniqueness problem
+        # by adding a random value to the counter later in the map
+        # method.
+        self._ix = multiprocessing.Value("I", lock=False)
 
     def map(self, item):
-        with self._ix:
-            new_item = {
-                "dt": time.time(),
-                "_ix": self._ix.value,
-                "json": json.dumps(item),
-            }
-            self._ix.value += 1
+        # First we use the unlocked counter and make sure it is
+        # between 1000_000_000 and 9999_000_000 and all the 6 value
+        # low digits is always zeros. Then, we add a random number to
+        # fill the 6 value low digits (to make sue it is unique in a
+        # certain micro second)
+        _ix = (1000 + self._ix.value) * 1_000_000 + random.randrange(
+            1_000_000)
+
+        self._ix.value = (self._ix.value + 1) % 9000
+
+        new_item = {
+            "dt": time.time(),
+            "_ix": _ix,
+            "json": json.dumps(item),
+        }
 
         return new_item
 
