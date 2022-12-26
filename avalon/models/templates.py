@@ -3,6 +3,7 @@ Base class and utilities for template-based modles to generate
 logs are defined in this module.
 """
 
+import collections
 import os
 import random
 import socket
@@ -114,13 +115,15 @@ class LogTemplateModel(BaseModel):
         return result
 
 
-def log_templates(obj):
+def log_templates(obj=None, *,
+                  # keyword-only arugmets for the decorator
+                  default_keys=False, enable_default_log_seeds=None):
     """
     A decorator for LogTemplateModel sub-classed which will update
     the class `templates` attribute.
 
     A set of default templates useful for logs (srcip, srcport, ...)
-    will be added to each template.
+    will be added to each template if `default_keys` is True.
 
     Also all the class attributes started with the prefix "all_" will
     be added to each template (without "all_" prefix).
@@ -132,7 +135,34 @@ def log_templates(obj):
 
     The decorator will always preserve a specific order for the items
     of the dictionary (CPython 3.6+).
+
+    The decorator could be called with or without arguments. It will
+    call `LogTemplateDecorator` accordingly.
+
+    Optional Keyword Arguments:
+     - default_keys:
+         if it is a dictionary: it will be used as-is to define the
+         default keys and their values.
+         if it is a list: the default keys defined in the list will
+         be enabled.
+         if it is boolean: it contorls whether default keys are
+         enabled or not.
+     - enable_default_log_seeds: boolean that contorls whether default
+       seeds are enabled or not.
     """
+    if obj is None:  # decorator is used with arguments
+        return LogTemplateDecorator(default_keys, enable_default_log_seeds)
+    else:  # decorator is used without arguments
+        return LogTemplateDecorator()(obj)
+
+
+class LogTemplateDecorator:
+    """
+    This class is used by `log_templates` decorator for
+    implementing the decoration. It is usually enough to call
+    `log_templates` directly without instantiating this class.
+    """
+
     defaults_base = {
         "ctime": lambda seed: seed["ctime"],
         "aname": None, "aclass": None, "amodel": None, "aid": "{aid}",
@@ -144,28 +174,41 @@ def log_templates(obj):
         "ident": None, "msg": None,
     }
 
-    for template in obj.templates:
-        defaults = {}
+    def __init__(self, default_keys=False, enable_default_log_seeds=None):
+        self.default_keys = (
+            default_keys if isinstance(default_keys, collections.abc.Mapping)
+            else {k: v for k, v in self.defaults_base if k in default_keys}
+            if isinstance(default_keys, collections.abc.Iterable) else
+            self.defaults_base if default_keys else {})
 
-        # Add dunder magic attirbutes in the beginning of the
-        # dictionary
-        for attr in ["__ratio__", "__seed__"]:
-            if attr in template:
-                defaults[attr] = None
+        self.enable_default_log_seeds = enable_default_log_seeds
 
-        defaults.update(defaults_base)
+    def __call__(self, obj):
+        for template in obj.templates:
+            defaults = {}
 
-        for attr, value in obj.__dict__.items():
-            if attr.startswith("all_"):
-                defaults[attr[4:]] = value
+            # Add dunder magic attirbutes in the beginning of the
+            # dictionary
+            for attr in ["__ratio__", "__seed__"]:
+                if attr in template:
+                    defaults[attr] = None
 
-        defaults.update(template)
+            defaults.update(self.default_keys)
 
-        # To change order in Python 3.6+ dictionaries
-        template.clear()
-        template.update(defaults)
+            for attr, value in obj.__dict__.items():
+                if attr.startswith("all_"):
+                    defaults[attr[4:]] = value
 
-    obj.templates_weights = [template.pop("__ratio__", 1)
-                             for template in obj.templates]
+            defaults.update(template)
 
-    return obj
+            # To change order in Python 3.6+ dictionaries
+            template.clear()
+            template.update(defaults)
+
+        obj.templates_weights = [template.pop("__ratio__", 1)
+                                 for template in obj.templates]
+
+        if self.enable_default_log_seeds is not None:
+            obj.enable_default_log_seeds = self.enable_default_log_seeds
+
+        return obj

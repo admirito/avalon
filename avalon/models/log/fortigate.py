@@ -4,7 +4,7 @@ import random
 from avalon.models.templates import log_templates, LogTemplateModel
 
 
-@log_templates
+@log_templates(default_keys=True)
 class FortigateModel(LogTemplateModel):
     __model_name__ = "fortigate"
     all_aname = "Fortigate-stub"

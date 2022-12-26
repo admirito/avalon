@@ -3,7 +3,7 @@ import random
 from avalon.models.templates import log_templates, LogTemplateModel
 
 
-@log_templates
+@log_templates(default_keys=True)
 class ScreenOSModel(LogTemplateModel):
     __model_name__ = "screenon"
     all_aname = "ScreenOS-stub"

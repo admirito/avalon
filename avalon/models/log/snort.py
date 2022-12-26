@@ -3,7 +3,7 @@ import random
 from avalon.models.templates import log_templates, LogTemplateModel
 
 
-@log_templates
+@log_templates(default_keys=True)
 class SnortModel(LogTemplateModel):
     __model_name__ = "snort"
     all_aname = "Snort-stub"

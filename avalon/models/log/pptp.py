@@ -2,7 +2,7 @@ from avalon.models.templates import log_templates, LogTemplateModel
 from avalon.models.rand import random_username
 
 
-@log_templates
+@log_templates(default_keys=True)
 class MikrotikPPTPModel(LogTemplateModel):
     __model_name__ = "mikrotik_pptp"
     all_aname = "MikroTik-PPTP-stub"
@@ -49,7 +49,7 @@ class MikrotikPPTPModel(LogTemplateModel):
     ]
 
 
-@log_templates
+@log_templates(default_keys=True)
 class PPTPModel(LogTemplateModel):
     __model_name__ = "pptp"
     all_aname = "PPTP-stub"
