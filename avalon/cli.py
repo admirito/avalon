@@ -14,12 +14,73 @@ from . import models
 from . import processors
 
 
+def models_completer(prefix="", action=None, parser=None, parsed_args=None,
+                     **kwargs):
+    """
+    argcomplete's completer for model names according to
+    [I]model[R][bB][{mapping,...}] syntax for the postional arguments
+    of avalon cli.
+    """
+    models_list = models.models_list()
+
+    match = re.match(
+        r"(?:(\d+))?([A-Za-z_]+)?(?:(\d+))?(?:b(\d+))?(?:{([^}]+))?",
+        prefix)
+
+    if not match:
+        return models_list
+
+    instances, model_name, ratio, batch_size, mapping_names = match.groups()
+
+    new_prefix = [instances] if instances else []
+
+    if not model_name:
+        return [f"{instances or ''}{model}" for model in models_list]
+    elif model_name in models_list:
+        new_prefix += [model_name]
+    elif not ratio and not batch_size and not mapping_names and any(
+            i.startswith(model_name) for i in models_list):
+        return [f"{instances or ''}{model}" for model in models_list]
+    else:
+        return []
+
+    new_prefix += [ratio] if ratio else []
+
+    suggestions = ["b"] if ratio and not batch_size and not mapping_names \
+        else []
+
+    new_prefix += [f"b{batch_size}"] if batch_size else []
+
+    mappings_list = mappings.mappings_list()
+
+    if mapping_names:
+        mapping_tuple = mapping_names.rsplit(",", 1)
+        mapping_prefix, new_mapping = \
+            (f"{mapping_tuple[0]},", mapping_tuple[1]) \
+            if len(mapping_tuple) == 2 else [""] + mapping_tuple
+
+        suggestions += [f"{{{mapping_prefix}{suggestion}}}"
+                        for suggestion in mappings_list
+                        if suggestion.startswith(new_mapping)]
+    else:
+        suggestions += [f"{{{mapping}}}" for mapping in mappings_list]
+
+    new_prefix_str = "".join(new_prefix)
+    return [f"{new_prefix_str}{suggestion}" for suggestion in suggestions]
+
+
 def main():
     """
     The main entrypoint for the application
     """
     parser = argparse.ArgumentParser(
         description="real-time streaming data generator")
+
+    metadata_file_default_path = "/etc/avalon/metadata-list.sh"
+    if not os.path.exists(metadata_file_default_path):
+        metadata_file_default_path = os.path.join(
+            os.path.dirname(__file__), "models", "rflowdata",
+            "metadata-list.sh")
 
     format_group = parser.add_mutually_exclusive_group()
 
@@ -32,12 +93,11 @@ def main():
         "1000 ratio (compared to other instances of models) with batch size "
         "of 100. The data will be generated based on the specified "
         "composition. An optional comma seperated list of mappings inside "
-        "braces could also be defined at the end of each expression.")
+        "braces could also be defined at the end of each expression."
+    ).completer = models_completer
     parser.add_argument(
         "--metadata-file", metavar="<file>", type=str,
-        default=os.path.join(os.path.dirname(__file__), "models", "rflowdata",
-                             "metadata-list.sh"),
-        dest="metadata_file_name",
+        default=metadata_file_default_path, dest="metadata_file_name",
         help="Used with RFlow Model, determines the metadata list file.")
     parser.add_argument(
         "--rate", metavar="<N>", type=int, default=1,
@@ -81,7 +141,8 @@ def main():
         "--map", type=str, action="append", dest="mappings", default=[],
         metavar=f"{{{','.join(mappings.mappings_list())},[custom url]}}",
         help="Map the model output with the specified map. This argument "
-        "could be used multiple times.")
+        "could be used multiple times."
+    ).completer = lambda **kwargs: mappings.mappings_list() + ["file:///"]
     format_group.add_argument(
         "--rawlog", action="store_true",
         help="Equivalent to --filter=msg --format=csv.")
@@ -207,8 +268,31 @@ def main():
         "--list-models", action="store_true",
         help="Print the list of available data models and exit.")
     parser.add_argument(
+        "--list-mappings", action="store_true",
+        help="Print the list of available mappings and exit.")
+    parser.add_argument(
+        "--completion-script", default=None, metavar="<shell>",
+        nargs="?", const="bash", choices=["bash", "tsh", "fish"],
+        help="Generate autocompletion script for <shell> and exit.")
+    parser.add_argument(
+        "--completion-script-executable-name", metavar="<name>",
+        default=os.path.basename(sys.argv[0]),
+        help="Set the executable name of the completion script to <name>.")
+    parser.add_argument(
         "--version", action="store_true",
         help="Print the program version and exit.")
+
+    try:
+        import argcomplete
+    except ModuleNotFoundError:
+        pass
+    else:
+        # This method is the entry point to the autocomplete. It must
+        # be called after ArgumentParser construction is complete, but
+        # before the ArgumentParser.parse_args() method is called.
+        # More info:
+        # https://github.com/kislyuk/argcomplete#argcompleteautocompleteparser
+        argcomplete.autocomplete(parser)
 
     args = parser.parse_args()
 
@@ -216,8 +300,19 @@ def main():
         sys.stderr.write(f"Python {sys.version}\nAvalon {__version__}\n")
         exit(0)
 
+    if args.completion_script:
+        sys.stdout.write(argcomplete.shellcode(
+            [args.completion_script_executable_name],
+            shell=args.completion_script))
+        exit(0)
+
     if args.list_models:
         sys.stderr.write("\n".join(models.models_list()))
+        sys.stderr.write("\n")
+        exit(0)
+
+    if args.list_mappings:
+        sys.stderr.write("\n".join(mappings.mappings_list()))
         sys.stderr.write("\n")
         exit(0)
 
