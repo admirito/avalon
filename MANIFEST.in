@@ -1,0 +1,2 @@
+include avalon_build.py
+prune venv

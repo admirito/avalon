@@ -2,4 +2,8 @@
 
 import setuptools
 
-setuptools.setup()
+from avalon_build import OrgToRst
+
+
+with OrgToRst():
+    setuptools.setup()

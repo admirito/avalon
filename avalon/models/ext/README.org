@@ -1,0 +1,252 @@
+* Avalon Extended Models
+Avalon supports a couple of models out of the box, but it also
+supports third-party extensions for generating arbitrary data and it
+is as simple as writing a Python class with a =next= method that will
+return a new model data on every call.
+
+Avalon also supports [[https://packaging.python.org/en/latest/guides/packaging-namespace-packages/][Python namespace packages]] and will load all the
+modules in the =avalon.models.ext= sub-package, so all you have to do
+to develop a new model is to create a Python module and make sure it
+is importable from this path in Python.
+
+** Module structure
+
+Avalon will scan all the modules in the =avalon.models.ext= import
+path and use all the classes defined in the module top level as Avalon
+models if they have two conditions:
+
+1. The class must be a sub-class of =avalon.models.BaseModel=.
+
+2. The class must define a =__model_name__= with a string value. The
+   string value will be used to register the class in the Avalon
+   models registry and it will be available in the command-line with
+   this name.
+
+Also, you have to define a =next= method (without any arguments other
+than =self=), that Avalon will be called again and again. Each time it
+has to return a new value for the model.
+
+Most Avalon formatters accept Python dictionaries so the returned
+value of the =next= method usually has to be a dictionary.
+
+Here is an example:
+
+#+begin_src python
+  import os
+  import time
+  from avalon.models import BaseModel
+
+  # The class must inherit from BaseModel to be recognized as a
+  # avalon model
+  class TestExtModel(BaseModel):
+      """
+      A sample model, just for testing.
+      """
+
+      # The model will be available in avalon via this name. It shuld only
+      #  contain engilish letters (upper or lower case) and underscore.
+      __model_name__ = "test_ext_model"
+
+      # A class attribute for this example
+      _id_counter = 0
+
+      def __init__(self, **options):
+          super().__init__(**options)
+
+          # The __init__ method for all the instances will be executed
+          # in a single python process.
+
+          self.__class__._id_counter += 1
+          self._id = self._id_counter
+
+      def next(self):
+          """
+          Reutrns a single datum on each call as a python dictionary, so
+          avalon default formatters such as `json-lines` and `csv` could
+          process it.
+          """
+          return {"class_id": self._id,
+                  # The `next` method might be executed in multiple
+                  # processes for scalability. Especially if you run
+                  # avalon with multiple instances of `test_ext_model`.
+                  # So, os.getpid() might return different numbers.
+                  "pid": os.getpid(),
+                  "ts": time.time()}
+#+end_src
+
+If there deployment, the model could be used in the Avalon command
+line:
+
+#+begin_src shell
+  avalon 5test_ext_model --number=10 --batch=2 --rate=100
+#+end_src
+
+Note that in this scenario, =5test_ext_model= means 5 Avalon
+producer processes. So the `next` method we defined might be executed
+in separate Python processes.
+
+** Log template models
+
+Avalon defines a =LogTemplateModel= class and a =log_templates= class
+decorator to further facilitate writing model extensions.
+
+An Avalon model could be sub-classed from
+=avalon.models.templates.LogTemplateModel= instead of
+=avalon.models.BaseModel=. In this case, you have to also use the
+=log_templates= decorator in the =avalon.models.templates= module.
+
+Here is an example that demonstrates the Avalon template models:
+
+#+begin_src python
+  from avalon.models.templates import log_templates, LogTemplateModel
+
+  @log_templates(default_keys=True)
+  class TestTemplateModel(LogTemplateModel):
+      __model_name__ = "test_template_model"
+      all_name = "test"
+      all_id = 1000
+      all_create_time = "{ctime}"
+
+      # The default seeds such as ctime, srcip, etc. are enabled by
+      # default, but you can disable them by the following line:
+      # enable_default_log_seeds = False
+
+      templates = [
+          {"__ratio__": 1,
+           "ident": "100",
+           "msg": "simple test"},
+          {"__ratio__": 5,
+           "ident": "200",
+           "msg": "from {srcip}/{srcport} to {dstip}/{dstport}"},
+      ]
+#+end_src
+
+Each Avalon template models define a list of templates in its
+=templates= attribute. Each template is a dictionary which will used
+by the auto-generated =next= method to randomly generate model data.
+
+The default =next= method will randomly select one of templates
+according to the =__ratio__= key of the dictionary, so the templates
+with higher values of =__ratio__= are more probable to be selected.
+
+Other template dictionary key/values will define the data for each
+template. The values could have any desired type. But if they are
+strings they will be formatted with the class seed and if they are
+callables they will be called (with one argument, i.e. the seed
+dictionary) and the returned value will be collected for that key of
+the template.
+
+In practice, sometimes there are static keys that are available in all
+the templates. Here the =log_templates= class decorator comes
+handy. The decorator will add all the class attributes starting with
+=all_= prefix to all the defined templates of the class.
+
+The =log_templates= class decorator could be used with or without
+arguments. The =default_keys=True= argument in this example, enables a
+couple of default keys for all the templates.
+
+The class seed is a dictionary that will be used for formatting the
+strings with curly braces templates. The default seed contains keys
+such as =srcip=, =srcport=, etc. that are generated randomly on each
+=next= method call.
+
+The default seed will be generated by the default =__seed__= method
+that could be overridden to generate customized data. This method
+should accept the initial seed as its sole argument and should return
+it after some modifications. Here is an example:
+
+#+begin_src python
+  import random
+  from avalon.models.templates import log_templates, LogTemplateModel
+
+  @log_templates
+  class TestSeedTemplateModel(LogTemplateModel):
+      __model_name__ = "test_seed_template_model"
+      all_name = "test2"
+      all_msg = "custom seeds {number} and {letter}."
+
+      def __seed__(self, seed):
+          seed = super().__seed__(seed)
+
+          seed["number"] = random.randrange(0, 100)
+          seed["letter"] = random.choice("abcdef")
+
+          return seed
+
+      templates = [
+          {"__ratio__": 1,
+           "ident": "100"},
+          {"__ratio__": 1,
+           "ident": "200",
+           # for a non-string type, you can provide a callable which
+           # accepts the seed dictionary as the only argument and
+           # returns the non-string value.
+           "number": lambda seed: seed["number"],
+           "letter": "{letter}"},
+      ]
+#+end_src
+
+To prevent generating seeds that are not useful for all the templates,
+each template could provide its own =__instance_seed__= methods that
+will be called only when that template is chosen. Here is an example:
+
+#+begin_src python
+  import random
+  from avalon.models.templates import log_templates, LogTemplateModel
+
+  @log_templates
+  class TestInstanceSeedTemplateModel(LogTemplateModel):
+      __model_name__ = "test_instance_seed_template_model"
+      all_name = "test3"
+
+      def random_number(self, seed):
+          return {"number": random.randrange(0, 100)}
+
+      def random_letter(self, seed):
+          return {"letter": random.choice("abcdef")}
+
+      templates = [
+          {"__ratio__": 1, "__instance_seed__": random_number,
+           "ident": "100",
+           "number_as_string": "{number}"},
+          {"__ratio__": 1, "__instance_seed__": random_letter,
+           "ident": "200",
+           "letter": "{letter}"},
+      ]
+#+end_src
+
+** Deploy the extensions on Avalon
+
+Avalon loads all the modules in the =avalon.models.ext=
+sub-package. So you have to create the directory structure
+=avalon/models/ext= and put your model modules in the =ext= directory.
+
+Avalon supports [[https://packaging.python.org/en/latest/guides/packaging-namespace-packages/][Python namespace packages]], therefore you can add the
+parent directory to the [[https://docs.python.org/3/library/sys.html#sys.path][Python import path]] and the models will be
+accessible through Avalon command line:
+
+#+begin_src shell
+  PYTHONPATH=. avalon --list-models
+#+end_src
+
+To publish your models you can use [[https://docs.python.org/3/distutils/setupscript.html][distutils setup script]]. Just put a
+=setup.py= file with the following content in the parent directory
+which contains the =avalon/models/ext= directory structure:
+
+#+begin_src python
+  #!/usr/bin/env python3
+
+  from distutils.core import setup
+
+  setup(name='avalon-testext',
+        version='1.0',
+        description='Test extenstions for avalon',
+        author='Mohammad Razavi',
+        author_email='the_email_address@host',
+        url='https://github.com/admirito/avalon/',
+        packages=['avalon.models.ext'],
+       )
+#+end_src
+
+Then you can install your modules with =pip install -e .= for
+development or publish it.
