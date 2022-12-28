@@ -429,7 +429,7 @@ def main():
             file=args.output_file,
             **common_media_kwargs)
     elif args.output_media == "http":
-        media = mediums.SingleHTTPRequest(
+        media = mediums.SingleHTTPRequestMedia(
             url=args.output_http_url,
             gzip=args.output_http_gzip,
             **common_media_kwargs)
