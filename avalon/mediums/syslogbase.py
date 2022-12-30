@@ -13,17 +13,18 @@ class SyslogMedia(BaseMedia):
      - `level`: syslog level name
      - `tag`: syslog tag
     """
+
+    __title__ = "syslog"
+
     def __init__(self, max_writers, **options):
         super().__init__(max_writers, **options)
 
-        self.address = options.get("address", "/dev/log")
         if not os.path.exists(self.address):
             host, port, *_ = self.address.split(":") + [514]
             port = int(port)
             self.address = (host, port)
 
-        self.level = logging.getLevelName(options.get("level", "INFO").upper())
-        self.tag = options.get("tag", "avalon")
+        self.level = logging.getLevelName(self.level.upper())
 
         tag_formatter = logging.Formatter(f"{self.tag}: %(message)s")
         handler = logging.handlers.SysLogHandler(self.address)
@@ -33,6 +34,23 @@ class SyslogMedia(BaseMedia):
         self.logger = logging.getLogger("avalon-syslog-media")
         self.logger.addHandler(handler)
         self.logger.setLevel(self.level)
+
+    @classmethod
+    def add_arguments(cls, group):
+        """
+        Add class arguemtns to the argparse group
+        """
+        group.add_argument(
+            "--syslog-address", metavar="<address>", default="/dev/log",
+            help="Send data to the syslog server at <address>. It could be \
+            host:port or path to syslog socket")
+        group.add_argument(
+            "--syslog-level", metavar="<level>", default="info",
+            choices=["debug", "info", "warn", "error", "fatal"],
+            help="Set the syslog level to <level>.")
+        group.add_argument(
+            "--syslog-tag", metavar="<name>", default="avalon",
+            help="Set the syslog tag to <name>.")
 
     def _write(self, batch):
         if isinstance(batch, bytes):

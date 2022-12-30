@@ -1,3 +1,4 @@
+import argparse
 import importlib
 import os
 import pathlib
@@ -5,6 +6,7 @@ import shutil
 import tempfile
 
 from . import BaseMedia
+from ..registry import RequiredValue
 
 
 def _import_third_party_libs():
@@ -23,22 +25,42 @@ class GRPCMedia(BaseMedia):
      - `method`: GRPC method fullname (with package and servcie)
     """
 
-    def __init__(self, max_writers, **options):
+    __title__ = "grpc"
+
+    def __init__(self, max_writers=None, **options):
         super().__init__(max_writers, **options)
 
         _import_third_party_libs()
 
         self.client = None
-        self.endpoint = options["endpoint"]
-        self.service, self.method, *_ = options[
-            "method_name"].rsplit(".", 1) + [""]
+        self.service, self.method, *_ = \
+            self.method_name.rsplit(".", 1) + [""]
 
         # remove package name from service name
         service_name = self.service.split(".", 1)[1]
 
-        proto_file = options.get("proto")
+        self.proto_file = getattr(self.proto_file, "name", None)
         self.service_descriptor = self._proto_to_service_descriptor(
-            proto_file, service_name) if proto_file else None
+            self.proto_file, service_name) if self.proto_file else None
+
+    @classmethod
+    def add_arguments(cls, group):
+        """
+        Add class arguemtns to the argparse group
+        """
+        group.add_argument(
+            "--grpc-endpoint", metavar="<endpoint>",
+            default=RequiredValue("--grpc-endpoint"),
+            help="Send GRPC requests to <endpoint>.")
+        group.add_argument(
+            "--grpc-method-name", metavar="<fullname>",
+            default=RequiredValue("--grpc-method-name"),
+            help="Use <fullname> as the name of the method to call.")
+        group.add_argument(
+            "--grpc-proto", metavar="<file>", type=argparse.FileType("rb"),
+            dest="grpc_proto_file",
+            help="Use proto <file> to create grpc stubs instead of \
+            using reflection.")
 
     def _proto_to_service_descriptor(self, proto_file, service_name):
         """

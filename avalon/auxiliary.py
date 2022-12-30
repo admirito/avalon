@@ -7,6 +7,7 @@ import importlib
 import multiprocessing
 import os
 import re
+import shlex
 import signal
 import struct
 import time
@@ -161,3 +162,22 @@ def parse_db_url(url):
                            for i in _url.query.split("&")))
 
     return result
+
+
+def key_values_str_to_dict(s):
+    """
+    Given an string with space delimited key=value items the
+    equivalent Python dictionary will be returned. The value could be
+    enclosed in `"` or `'`.
+    """
+    return dict(tuple(i.split("=", 1) + [""])[:2]
+                for i in shlex.split(s))
+
+
+class classproperty(property):
+    """
+    Decorator that converts a method with a single cls argument
+    into a property that can be accessed directly from the class.
+    """
+    def __get__(self, owner_self, owner_cls):
+        return self.fget(owner_cls)

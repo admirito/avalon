@@ -1,4 +1,7 @@
+import html
+
 from . import BaseMedia
+from ..registry import RequiredValue
 
 
 def _import_third_party_libs():
@@ -24,18 +27,15 @@ class SOAPMedia(BaseMedia):
        be generated once and consecutive calls will reuse it.
     """
 
+    __title__ = "soap"
+
     def __init__(self, max_writers, **options):
         super().__init__(max_writers, **options)
 
         _import_third_party_libs()
 
-        self.method_name = options["method_name"]
-        self.location = options["location"]
-        self.timeout = options.get("timeout", 10)
-        self.enable_cache = options.get("enable_cache", True)
-
         self._suds_client = suds.client.Client(
-            url=options["wsdl_url"],
+            url=self.wsdl_url,
             location=self.location)
 
         self._suds_method = getattr(self._suds_client.service,
@@ -54,6 +54,31 @@ class SOAPMedia(BaseMedia):
         soapenv = soapenv.str().replace("{", "{{").replace("}", "}}")
         soapenv = soapenv.replace(template, "{}")
         self._soapenv_template = soapenv
+
+    @classmethod
+    def add_arguments(cls, group):
+        """
+        Add class arguemtns to the argparse group
+        """
+        group.add_argument(
+            "--soap-wsdl-url", metavar="<url>",
+            default=RequiredValue("--soap-wsdl-url"),
+            help="Use WSDL at <url>.")
+        group.add_argument(
+            "--soap-location", metavar="<url>",
+            default=RequiredValue("--soap-location"),
+            help="Send SOAP requests to <url>.")
+        group.add_argument(
+            "--soap-method-name", metavar="<name>",
+            default=RequiredValue("--soap-method-name"),
+            help="Use <name> as the name of the SOAP method to call.")
+        group.add_argument(
+            "--soap-timeout", metavar="<n>", default=10, type=int,
+            help="For soap media, use <n> as the timeout value.")
+        group.add_argument(
+            "--soap-disable-cache", action="store_false",
+            dest="soap_enable_cache",
+            help="Disable envelope caching.")
 
     def _write(self, batch: str):
         soapenv = self._soapenv_template.format(html.escape(batch))
