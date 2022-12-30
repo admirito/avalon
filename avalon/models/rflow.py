@@ -1,5 +1,6 @@
 import base64
 import datetime
+import os
 import random
 import re
 import socket
@@ -20,12 +21,32 @@ class RFlowModel(BaseModel):
 
     Rflow generator
     """
+
+    __title__ = "rflow"
+
+    args_mapping = {"rflow_metadata_file": "metadata_file_name"}
+
     _id_counter = 0
     metadata_list = None
     max_allowed_pendding = 100
 
-    def __init__(self, **options):
-        super().__init__(**options)
+    @classmethod
+    def add_arguments(cls, group):
+        """
+        Add class arguemtns to the argparse group
+        """
+        metadata_file_default_path = "/etc/avalon/metadata-list.sh"
+        if not os.path.exists(metadata_file_default_path):
+            metadata_file_default_path = os.path.join(
+                os.path.dirname(__file__), "rflowdata", "metadata-list.sh")
+
+        group.add_argument(
+            "--rflow-metadata-file", metavar="<file>", type=str,
+            default=metadata_file_default_path,
+            help="Determines the metadata list file.")
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self._id = self.__class__._id_counter
         self.__class__._id_counter += 1
@@ -37,7 +58,7 @@ class RFlowModel(BaseModel):
         self._pendding_rflows = []
 
         if self.__class__.metadata_list is None:
-            with open(options["metadata_file_name"], "r") as f:
+            with open(self.metadata_file_name, "r") as f:
                 tmp_str = f.read()
                 self.__class__.metadata_list = re.findall(
                     r"\"(\S+)\"", tmp_str)

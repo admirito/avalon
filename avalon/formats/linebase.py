@@ -27,6 +27,9 @@ class JsonLinesFormat(LineBaseFormat):
     """
     Serialize data by generating a JSON Object per line.
     """
+
+    __title__ = "json-lines"
+
     def __init__(self, *args, **kwargs):
         super().__init__()
 
@@ -38,6 +41,9 @@ class CSVFormat(LineBaseFormat):
     """
     Serialize data by generating a comma separated values per line.
     """
+
+    __title__ = "csv"
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -72,6 +78,9 @@ class BatchHeaderedCSVFormat(CSVFormat):
     Serialize data by generating a comma separated values per line
     and each batch contains header
     """
+
+    __title__ = "batch-headered-csv"
+
     def batch(self, model, size):  # every batch can be considered as a file
         """
         Produces headered batches.
@@ -94,6 +103,9 @@ class HeaderedCSVFormat(BatchHeaderedCSVFormat):
     Serialize data by generating a comma separated values per line
     and the first batch contains header
     """
+
+    __title__ = "headered-csv"
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._first = multiprocessing.Value(ctypes.c_bool, True)

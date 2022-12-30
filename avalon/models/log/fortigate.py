@@ -6,7 +6,7 @@ from avalon.models.templates import log_templates, LogTemplateModel
 
 @log_templates(default_keys=True)
 class FortigateModel(LogTemplateModel):
-    __model_name__ = "fortigate"
+    __title__ = "fortigate"
     all_aname = "Fortigate-stub"
     all_aclass = "10"
     all_amodel = "360"

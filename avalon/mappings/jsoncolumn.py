@@ -13,6 +13,9 @@ class JsonColumnMapping(BaseMapping):
      - _ix : counter
     - json : all the data as a json
     """
+
+    __title__ = "jsoncolumn"
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -39,6 +42,9 @@ class Int32IxMapping(BaseMapping):
     Transform the _ix column to a signed int32 (appropriate for
     postgresql)
     """
+
+    __title__ = "int32ix"
+
     def map(self, item):
         try:
             item["_ix"] = ctypes.c_int32(item["_ix"]).value

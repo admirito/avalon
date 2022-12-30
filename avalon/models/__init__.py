@@ -5,50 +5,31 @@ import pkgutil
 import time
 
 from ..auxiliary import importall
-
+from ..registry import Registry, BaseRepository
+from ..auxiliary import classproperty
 
 # Extend __path__ to enable avlaon namespace package extensions
 __path__ = pkgutil.extend_path(__path__, __name__)
 
 
-class Models:
-    """
-    An abstraction for keeping a list of available models.
-    """
-    def __init__(self):
-        # key: model name
-        # value: model class
-        self._models = {}
-
-        self._total = None
-
-    def register(self, model_name, model_class):
-        """
-        Register a new model class.
-        """
-        self._models[model_name] = model_class
-
-    def models_list(self):
-        """
-        Returns the list of available models.
-        """
-        return list(self._models.keys())
-
-    def model(self, model_name, **options):
-        """
-        Returns an instance of a model that can generate model
-        data by calling its next() method.
-        """
-        return self._models[model_name](**options)
-
-
-class BaseModel:
+class BaseModel(BaseRepository):
     """
     A generic parent for the Models. Each Model is responsible for
     generating data that could be serialized by a Format.
     """
-    def __init__(self, **options):
-        pass
+
+    # disable accepting arguments started with __title__
+    args_prefix = None
+
+    @classproperty
+    def args_group_description(cls):
+        """
+        `args_group_description` class attribute defaults to a
+        generic description but it can be overridden in sub-classes.
+        """
+        return (
+            f"Arguments for {cls.args_group_title!r} model"
+            if cls.args_group_title and cls.default_kwargs() else None)
 
     def next(self):
         """
@@ -61,6 +42,9 @@ class TestModel(BaseModel):
     """
     A sample model, just for testing.
     """
+
+    __title__ = "test"
+
     _id_counter = 0
 
     def __init__(self, **options):
@@ -83,6 +67,7 @@ class LogModel(BaseModel):
     """
     Log generator
     """
+
     _id_counter = 0
 
     def __init__(self):
@@ -108,8 +93,8 @@ def _get_model_tuples(package):
     for module_name, module in package.__dict__.items():
         for cls_name, cls in getattr(module, "__dict__", {}).items():
             if (inspect.isclass(cls) and issubclass(cls, BaseModel) and
-                    hasattr(cls, "__model_name__")):
-                yield cls.__model_name__, cls
+                    getattr(cls, "__title__", None)):
+                yield cls.__title__, cls
 
 
 def get_models():
@@ -122,12 +107,12 @@ def get_models():
     try:
         return _models
     except NameError:
-        _models = Models()
+        _models = Registry()
 
-    _models.register("test", TestModel)
+    _models.register(TestModel.__title__, TestModel)
 
     from .rflow import RFlowModel
-    _models.register("rflow", RFlowModel)
+    _models.register(RFlowModel.__title__, RFlowModel)
 
     from . import log
     from . import ext
@@ -145,12 +130,12 @@ def models_list():
     Syntactic suger to get the list of models from the models
     singleton from get_models() method.
     """
-    return get_models().models_list()
+    return get_models().classes_list()
 
 
-def model(model_name, **options):
+def model(model_name):
     """
-    Syntactic suger to get a new model instance of the model name
+    Syntactic suger to get the model class for the model name
     from the models singleton from get_models() method.
     """
-    return get_models().model(model_name, **options)
+    return get_models().get_class(model_name)

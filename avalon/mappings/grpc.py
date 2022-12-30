@@ -16,6 +16,9 @@ class RFlowProtoMapping(BaseMapping):
     """
     Transfrom RFlow model data to be compatible with RFlow proto.
     """
+
+    __title__ = "rflowproto"
+
     def map(self, item):
         item["id"] = item.pop("flow_id", 1)
         item.pop("user_id", None)
@@ -55,6 +58,9 @@ class RFlowHelloGRPCSensorIDMapping(BaseMapping):
     Add a sensor_id to the model data by calling "Hello" method of
     the GRPC endpoint provided by the avalon CLI.
     """
+
+    __title__ = "rflowhello"
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -91,6 +97,9 @@ class LogProtoMapping(BaseMapping):
     """
     Transfrom log models data to be compatible with Log proto.
     """
+
+    __title__ = "logproto"
+
     afterdash_regex = re.compile("-.*")
 
     def map(self, item):

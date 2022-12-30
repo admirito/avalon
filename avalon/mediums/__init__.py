@@ -27,7 +27,7 @@ class BaseMedia(BaseRepository):
             if cls.args_group_title and cls.default_kwargs() else None)
 
     def __init__(self, max_writers=None, *,
-                 ignore_errors=False, **options):
+                 ignore_errors=False, **kwargs):
         self._semaphore = (
             contextlib.nullcontext()
             if max_writers is None
@@ -35,7 +35,7 @@ class BaseMedia(BaseRepository):
 
         self.ignore_errors = ignore_errors
 
-        super().__init__(**options)
+        super().__init__(**kwargs)
 
     def write(self, batch):
         """

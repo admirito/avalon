@@ -35,6 +35,9 @@ class IDMEFFormat(LineBaseFormat, IDMEFBaseFormat):
     Serialize data by generating a new-line separated IDMEF (RFC
     4765) XML documents.
     """
+
+    __title__ = "idmef"
+
     analyzer_node = (
         '<Analyzer analyzerid="avalon" name="avalon" '
         'class="34" model="6">')
@@ -203,6 +206,9 @@ class CorrelatedIDMEFFormat(IDMEFFormat):
     Serialize data just like the IDMEFFormat class but it will add
     a CorrelationAlert Node to all the items.
     """
+
+    __title__ = "correlated-idmef"
+
     analyzer_node = (
         '<Analyzer analyzerid="avalon-correlation" name="avalon-correlation" '
         'class="2">')
@@ -225,6 +231,8 @@ class PickledIDMEFFormat(IDMEFBaseFormat):
     tuples. The IDMEF is a list of tuples which the first item is an
     XPath from IDMEF XML and the second item is its value.
     """
+
+    __title__ = "pickled-idmef"
 
     class PLACEHOLDER:
         pass

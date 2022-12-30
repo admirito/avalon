@@ -6,41 +6,37 @@ import types
 import urllib
 
 from .. import models
+from ..registry import Registry, BaseRepository
 
 
-class Mappings:
+class Mappings(Registry):
     """
     An abstraction for keeping a list of available mappings.
+
+    Just like the parnet class Registry but the `get_class` has been
+    overridden so that URLs are also supported.
     """
-    def __init__(self):
-        self._mappings = {}
-
-    def register(self, mapping_name, mapping_class):
+    def get_class(self, class_name):
         """
-        Register a new mapping class.
-        """
-        self._mappings[mapping_name] = mapping_class
+        Returns the class object of a class name
 
-    def mappings_list(self):
+        `class_name` could also be a URL in which case the URL will be
+        fetched and executed as Python code and its mapping will be
+        extracted.
         """
-        Returns the list of available mappings.
-        """
-        return list(self._mappings.keys())
+        if class_name in self._registry:
+            return self._registry[class_name]
 
-    def mapping(self, mapping_name, **kwargs):
-        if mapping_name in self._mappings:
-            return self._mappings[mapping_name](**kwargs)
-
-        # If the mapping_name is not already registered let's assume
+        # If the class_name is not already registered let's assume
         # it is a URL.
-        with urllib.request.urlopen(mapping_name) as response:
+        with urllib.request.urlopen(class_name) as response:
             module_src = response.read()
 
         # Create a python module according to the URL fetched content.
         module_name = pathlib.Path(
-            urllib.parse.urlparse(mapping_name).path).stem
+            urllib.parse.urlparse(class_name).path).stem
         module = types.ModuleType(module_name)
-        module.__file__ = mapping_name
+        module.__file__ = class_name
         # By setting the __package__ on the module, the avalon
         # internals could be relatively imported in the module source
         # code (e.g. from . import mappings)
@@ -57,18 +53,19 @@ class Mappings:
                     cls = type(f"{cls.__name__}BasedOnBaseMapping",
                                (cls, BaseMapping), {})
 
-                return cls(**kwargs)
+                return cls
 
-        raise ValueError(f"No class with a map method found in {mapping_name}")
+        raise ValueError(f"No class with a map method found in {class_name}")
 
 
-class BaseMapping:
+class BaseMapping(BaseRepository):
     """
     A generic parent for the Mappings. Each Mapping is responsible
     for map the output of a Model instance to a new one.
     """
-    def __init__(self, **kwargs):
-        pass
+
+    # disable accepting arguments started with __title__
+    args_prefix = None
 
     def map_model(self, model_instance):
         """
@@ -116,28 +113,25 @@ def get_mappings():
     from .grpc import (
         RFlowProtoMapping, RFlowHelloGRPCSensorIDMapping, LogProtoMapping)
 
-    _mappings.register("jsoncolumn", JsonColumnMapping)
-    _mappings.register("int32ix", Int32IxMapping)
-    _mappings.register("dttoiso", DtToIsoMapping)
-    _mappings.register("dttots", DtToTimestampMapping)
-    _mappings.register("rflowproto", RFlowProtoMapping)
-    _mappings.register("rflowhello", RFlowHelloGRPCSensorIDMapping)
-    _mappings.register("logproto", LogProtoMapping)
+    for mapping in [JsonColumnMapping, Int32IxMapping, DtToIsoMapping,
+                    DtToTimestampMapping, RFlowProtoMapping,
+                    RFlowHelloGRPCSensorIDMapping, LogProtoMapping]:
+        _mappings.register(mapping.__title__, mapping)
 
     return _mappings
 
 
 def mappings_list():
     """
-    Syntactic suger to get the list of foramts from the mappings
+    Syntactic suger to get the list of mappings from the mappings
     singleton from get_mappings() method.
     """
-    return get_mappings().mappings_list()
+    return get_mappings().classes_list()
 
 
-def mapping(mapping_name, **kwargs):
+def mapping(mapping_name):
     """
-    Syntactic suger to get a mapping from the mappings singleton
+    Syntactic suger to get the mapping class from the mappings singleton
     from get_mappings() method.
     """
-    return get_mappings().mapping(mapping_name, **kwargs)
+    return get_mappings().get_class(mapping_name)

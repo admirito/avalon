@@ -4,7 +4,7 @@ from avalon.models.rand import random_username
 
 @log_templates(default_keys=True)
 class MikrotikPPTPModel(LogTemplateModel):
-    __model_name__ = "mikrotik_pptp"
+    __title__ = "mikrotik_pptp"
     all_aname = "MikroTik-PPTP-stub"
     all_aclass = "11"
     all_amodel = "4350"
@@ -51,7 +51,7 @@ class MikrotikPPTPModel(LogTemplateModel):
 
 @log_templates(default_keys=True)
 class PPTPModel(LogTemplateModel):
-    __model_name__ = "pptp"
+    __title__ = "pptp"
     all_aname = "PPTP-stub"
     all_aclass = "24"
     all_amodel = "315"

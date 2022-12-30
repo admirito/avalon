@@ -75,12 +75,6 @@ def main():
     parser = argparse.ArgumentParser(
         description="real-time streaming data generator")
 
-    metadata_file_default_path = "/etc/avalon/metadata-list.sh"
-    if not os.path.exists(metadata_file_default_path):
-        metadata_file_default_path = os.path.join(
-            os.path.dirname(__file__), "models", "rflowdata",
-            "metadata-list.sh")
-
     format_group = parser.add_mutually_exclusive_group()
 
     parser.add_argument(
@@ -94,10 +88,6 @@ def main():
         "composition. An optional comma seperated list of mappings inside "
         "braces could also be defined at the end of each expression."
     ).completer = models_completer
-    parser.add_argument(
-        "--metadata-file", metavar="<file>", type=str,
-        default=metadata_file_default_path, dest="metadata_file_name",
-        help="Used with RFlow Model, determines the metadata list file.")
     parser.add_argument(
         "--rate", metavar="<N>", type=int, default=sys.maxsize,
         help="Set avarage transfer rate to to <N> items per seconds.")
@@ -160,13 +150,22 @@ def main():
         "--version", action="store_true",
         help="Print the program version and exit.")
 
-    # Add arguments of all the mediums to the parser
-    for media_name in mediums.mediums_list():
-        media_class = mediums.media(media_name)
+    repo_classes = [
+        models.model(model_name) for model_name in models.models_list()
+    ] + [
+        formats.format(format_name) for format_name in formats.formats_list()
+    ] + [
+        mediums.media(media_name) for media_name in mediums.mediums_list()
+    ] + [
+        mappings.mapping(map_name) for map_name in mappings.mappings_list()
+    ]
+
+    # Add arguments of all the repos to the parser
+    for repo_class in repo_classes:
         group = parser.add_argument_group(
-            title=media_class.args_group_title,
-            description=media_class.args_group_description)
-        media_class.add_arguments(group)
+            title=repo_class.args_group_title,
+            description=repo_class.args_group_description)
+        repo_class.add_arguments(group)
 
     try:
         import argcomplete
@@ -245,7 +244,9 @@ def main():
         else:
             args.output_format = "json-lines"
 
-    _format = formats.format(args.output_format, filters=filters)
+    format_class = formats.format(args.output_format)
+    _format = format_class(filters=filters,
+                           **format_class.namespace_to_kwargs(args))
 
     batch_generators = []
 
@@ -264,9 +265,9 @@ def main():
             exit(1)
 
         mapping_names = mapping_names.split(",") if mapping_names else []
-        applied_mappings = [mappings.get_mappings().mapping(mapping_name)
+        applied_mappings = [mappings.mapping(mapping_name)
                             for mapping_name in mapping_names]
-        applied_mappings += [mappings.get_mappings().mapping(mapping_name)
+        applied_mappings += [mappings.mapping(mapping_name)
                              for mapping_name in args.mappings]
 
         instances = int(instances) if instances is not None else 1
@@ -277,10 +278,12 @@ def main():
         # All instances together should generate the ratio
         ratio = ratio / instances if ratio is not None else None
 
-        models_options = {"metadata_file_name": args.metadata_file_name}
-        model = models.model(model_name, **models_options)
+        model_class = models.model(model_name)
+        model = model_class(**model_class.namespace_to_kwargs(args))
 
-        for mapping in applied_mappings:
+        for mapping_class in applied_mappings:
+            mapping = mapping_class(**mapping_class.namespace_to_kwargs(args))
+
             # let the mappings to access avalon cli arguments
             mapping.avalon_args = args
 

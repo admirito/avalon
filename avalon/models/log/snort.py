@@ -5,7 +5,7 @@ from avalon.models.templates import log_templates, LogTemplateModel
 
 @log_templates(default_keys=True)
 class SnortModel(LogTemplateModel):
-    __model_name__ = "snort"
+    __title__ = "snort"
     all_aname = "Snort-stub"
     all_aclass = "1"
     all_amodel = "1"

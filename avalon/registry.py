@@ -180,7 +180,7 @@ class BaseRepository:
         for key, value in vars(namespace).items():
             if key in mapping:
                 result[mapping[key]] = value
-            elif key.startswith(prefix):
+            elif prefix and key.startswith(prefix):
                 # key = key.removeprefix(prefix) in Python 3.9+
                 key = key[len(prefix):]
 

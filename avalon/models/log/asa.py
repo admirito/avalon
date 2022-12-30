@@ -3,7 +3,7 @@ from avalon.models.templates import log_templates, LogTemplateModel
 
 @log_templates(default_keys=True)
 class ASAModel(LogTemplateModel):
-    __model_name__ = "asa"
+    __title__ = "asa"
     all_aname = "ASA-stub"
     all_aclass = "10"
     all_amodel = "302"

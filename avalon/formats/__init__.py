@@ -1,43 +1,40 @@
 #!/usr/bin/env python3
 
-class Formats:
-    """
-    An abstraction for keeping a list of available formats.
-    """
-    def __init__(self):
-        self._formats = {}
-
-    def register(self, format_name, format_class):
-        """
-        Register a new format class.
-        """
-        self._formats[format_name] = format_class
-
-    def formats_list(self):
-        """
-        Returns the list of available formats.
-        """
-        return list(self._formats.keys())
-
-    def format(self, format_name, **kwargs):
-        return self._formats[format_name](**kwargs)
+from ..registry import Registry, BaseRepository
+from ..auxiliary import classproperty
 
 
-class BaseFormat:
+class BaseFormat(BaseRepository):
     """
     A generic parent for the Formats. Each Fromat is responsible
     for serializing the output of a Model instance.
 
     Options could be passed to the init constructor by keyword
-    arguments. The BaseFormat will only store the "filters" option as
-    an attribute of the created object.
+    arguments. The BaseFormat will store the "filters" option as an
+    attribute of the created object.
     """
+
+    # disable accepting arguments started with __title__
+    args_prefix = None
+
     class NOTSET:
         pass
 
-    def __init__(self, **kwargs):
-        self.filters = kwargs.get("filters", [])
+    @classproperty
+    def args_group_description(cls):
+        """
+        `args_group_description` class attribute defaults to a
+        generic description but it can be overridden in sub-classes.
+        """
+        return (
+            f"Arguments for {cls.args_group_title!r} format"
+            if cls.args_group_title and cls.default_kwargs() else None)
+
+    def __init__(self, filters=None, **kwargs):
+        self.filters = filters or []
         self.filters_nonexistent_default = self.NOTSET
+
+        super().__init__(**kwargs)
 
     def apply_filters(self, model_data):
         """
@@ -68,22 +65,18 @@ def get_formats():
     try:
         return _formats
     except NameError:
-        _formats = Formats()
+        _formats = Registry()
 
     from .linebase import (
         JsonLinesFormat, CSVFormat, HeaderedCSVFormat, BatchHeaderedCSVFormat)
     from .listbase import SQLFormat, GRPCFormat
     from .idmef import IDMEFFormat, CorrelatedIDMEFFormat, PickledIDMEFFormat
 
-    _formats.register("json-lines", JsonLinesFormat)
-    _formats.register("csv", CSVFormat)
-    _formats.register("headered-csv", HeaderedCSVFormat)
-    _formats.register("batch-headered-csv", BatchHeaderedCSVFormat)
-    _formats.register("sql", SQLFormat)
-    _formats.register("grpc", GRPCFormat)
-    _formats.register("idmef", IDMEFFormat)
-    _formats.register("correlated-idmef", CorrelatedIDMEFFormat)
-    _formats.register("pickled-idmef", PickledIDMEFFormat)
+    for fmt in [
+            JsonLinesFormat, CSVFormat, HeaderedCSVFormat,
+            BatchHeaderedCSVFormat, SQLFormat, GRPCFormat, IDMEFFormat,
+            CorrelatedIDMEFFormat, PickledIDMEFFormat]:
+        _formats.register(fmt.__title__, fmt)
 
     return _formats
 
@@ -93,12 +86,12 @@ def formats_list():
     Syntactic suger to get the list of foramts from the formats
     singleton from get_formats() method.
     """
-    return get_formats().formats_list()
+    return get_formats().classes_list()
 
 
-def format(format_name, **kwargs):
+def format(format_name):
     """
-    Syntactic suger to get a format from the formats singleton
+    Syntactic suger to get the format class from the formats singleton
     from get_formats() method.
     """
-    return get_formats().format(format_name, **kwargs)
+    return get_formats().get_class(format_name)

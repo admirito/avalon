@@ -17,11 +17,11 @@ class SQLFormat(ListFormat):
     """
     Creates SQL insert query values from dictionaries
     """
-    pass
+    __title__ = "sql"
 
 
 class GRPCFormat(ListFormat):
     """
     Creates GRPC batches i.e. a list of dictionaries
     """
-    pass
+    __title__ = "grpc"

@@ -5,7 +5,7 @@ from avalon.models.templates import log_templates, LogTemplateModel
 
 @log_templates(default_keys=True)
 class ScreenOSModel(LogTemplateModel):
-    __model_name__ = "screenon"
+    __title__ = "screenon"
     all_aname = "ScreenOS-stub"
     all_aclass = "10"
     all_amodel = "373"
