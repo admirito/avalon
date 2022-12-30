@@ -6,7 +6,6 @@ import os
 import sys
 
 from . import __version__
-from . import auxiliary
 from . import formats
 from . import mediums
 from . import mappings
@@ -100,7 +99,7 @@ def main():
         default=metadata_file_default_path, dest="metadata_file_name",
         help="Used with RFlow Model, determines the metadata list file.")
     parser.add_argument(
-        "--rate", metavar="<N>", type=int, default=1,
+        "--rate", metavar="<N>", type=int, default=sys.maxsize,
         help="Set avarage transfer rate to to <N> items per seconds.")
     parser.add_argument(
         "--duration", metavar="<N>", type=int, default=None,
@@ -109,21 +108,19 @@ def main():
         "--number", metavar="<N>", type=int, default=100,
         help="Set the maximum number of generated items to <N>.")
     parser.add_argument(
-        "--batch-size", metavar="<N>", type=int, default=1000,
+        "--batch-size", metavar="<N>", type=int, default=None,
         help="Set the default batch size to <N>.")
     parser.add_argument(
         "--progress", metavar="<N>", type=int, default=5,
         help="Show the progress every <N> seconds.")
     format_group.add_argument(
-        "--output-format", choices=formats.formats_list(),
-        default="json-lines",
+        "--output-format", choices=formats.formats_list(), default=None,
         help="Set the output format for serialization.")
     parser.add_argument(
-        "--output-media", default="file",
-        choices=mediums.mediums_list(),
+        "--output-media", default=None, choices=mediums.mediums_list(),
         help="Set the output media for transferring data.")
     parser.add_argument(
-        "--output-writers", metavar="<N>", type=int, default=4,
+        "--output-writers", metavar="<N>", type=int, default=None,
         help="Limit the maximum number of simultaneous output writers to <N>.")
     parser.add_argument(
         "--media-ignore-errors", action="store_true",
@@ -205,6 +202,9 @@ def main():
         sys.stderr.write("\n")
         exit(0)
 
+    if args.batch_size is None:
+        args.batch_size = min(args.number, 1000)
+
     if args.rawlog:
         if args.filters:
             sys.stderr.write(
@@ -217,34 +217,33 @@ def main():
     filters = [i.split(",") for i in args.filters]
     filters = sum(filters, [])  # flatten the list
 
-    dsn_dict = (auxiliary.parse_db_url(args.sql_dsn)
-                if isinstance(args.sql_dsn, str) else {})
+    if args.output_media is None:
+        acceptable_mediums = mediums.compatible_mediums(namespace=args)
+        if not acceptable_mediums:
+            args.output_media = "file"
+        else:
+            args.output_media = acceptable_mediums[0]
+            if len(acceptable_mediums) == 1:
+                sys.stderr.write(
+                    f"NOTE: {args.output_media!r} will be used as output "
+                    f"media.\n")
+            else:
+                sys.stderr.write(
+                    f"WARNING: The choice of output media is ambiguous ("
+                    f"{', '.join(acceptable_mediums)}). "
+                    f"{args.output_media!r} will be used as output "
+                    f"media.\n")
 
-    if dsn_dict:
-        scheme = dsn_dict.pop("scheme")
-        if args.output_media not in ["sql", "psycopg", "clickhouse"]:
-            args.output_media = {
-                "clickhouse": "clickhouse",
-                "postgresql": "psycopg",
-            }.get(scheme, "sql")
+    media_class = mediums.media(args.output_media)
 
+    if args.output_format is None:
+        if media_class.default_format is not None:
+            args.output_format = media_class.default_format
             sys.stderr.write(
-                f"NOTE: Output media changed to '{args.output_media}' "
-                f"according to the provided dsn.\n")
-
-    if args.output_media in ["sql", "psycopg", "clickhouse"]:
-        if args.output_format != "sql":
-            args.output_format = "sql"
-            sys.stderr.write(
-                f"NOTE: Output format changed to 'sql' because output "
-                f"media is '{args.output_media}'\n")
-
-    if args.output_media == "grpc":
-        if args.output_format != "grpc":
-            args.output_format = "grpc"
-            sys.stderr.write(
-                "WARNING: Output format changed to 'grpc' because output "
-                "media is 'grpc'\n")
+                f"NOTE: {args.output_format!r} will be used as output "
+                f"format.\n")
+        else:
+            args.output_format = "json-lines"
 
     _format = formats.format(args.output_format, filters=filters)
 
@@ -292,8 +291,6 @@ def main():
                 model,
                 _format, batch_size, ratio)
             for _ in range(instances))
-
-    media_class = mediums.media(args.output_media)
 
     try:
         media = media_class(max_writers=args.output_writers,

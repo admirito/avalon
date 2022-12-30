@@ -29,6 +29,10 @@ class BaseSqlMedia(BaseMedia):
     __title__ = "sql"
     args_group_description = "Arguments for all 'sql' based media"
 
+    default_format = "sql"
+
+    schemes = []
+
     def __init__(self, max_writers=None, **options):
         super().__init__(max_writers, **options)
 
@@ -54,6 +58,24 @@ class BaseSqlMedia(BaseMedia):
             dest="sql_table_definition",
             help="Determines database table name. \
             This name should contain fields order for exmaple 'tbl (a, b, c)'")
+
+    @classmethod
+    def check_args_namespace_relation(cls, args=None, namespace=None):
+        """
+        Returns a number that determines how strong the relation
+        between the arguments and this class is.
+        """
+        if namespace and isinstance(getattr(namespace, "sql_dsn", None), str):
+            scheme = parse_db_url(namespace.sql_dsn).get("scheme")
+            if scheme in cls.schemes:
+                return 100
+            elif cls.schemes and scheme:
+                # The class has defined a shcemes list, the user also
+                # provided a scheme; but these two are different.
+                return 0
+
+        return super().check_args_namespace_relation(
+            args=args, namespace=namespace)
 
     def _connect(self):
         pass
@@ -138,6 +160,8 @@ class PsycopgMedia(BaseSqlMedia):
     # remove the 'psycopg' entry from cli help
     args_group_description = None
 
+    schemes = ["postgresql"]
+
     def __init__(self, max_writers=None, **options):
         super().__init__(max_writers, **options)
 
@@ -192,6 +216,8 @@ class ClickHouseMedia(SqlMedia):
 
     # remove the 'clickhouse' entry from cli help
     args_group_description = None
+
+    schemes = ["clickhouse"]
 
     def __init__(self, max_writers=None, **options):
         super().__init__(max_writers, **options)

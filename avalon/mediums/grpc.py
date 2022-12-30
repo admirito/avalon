@@ -27,6 +27,8 @@ class GRPCMedia(BaseMedia):
 
     __title__ = "grpc"
 
+    default_format = "grpc"
+
     def __init__(self, max_writers=None, **options):
         super().__init__(max_writers, **options)
 

@@ -14,6 +14,8 @@ class BaseMedia(BaseRepository):
     """
     _semaphores = {}
 
+    default_format = None
+
     @classproperty
     def args_group_description(cls):
         """
@@ -81,7 +83,7 @@ def get_mediums():
 
 def mediums_list():
     """
-    Syntactic suger to get the list of foramts from the mediums
+    Syntactic suger to get the list of mediums from the mediums
     singleton from get_mediums() method.
     """
     return get_mediums().classes_list()
@@ -93,3 +95,21 @@ def media(medium_name):
     singleton with get_mediums() method.
     """
     return get_mediums().get_class(medium_name)
+
+
+def compatible_mediums(args=None, namespace=None):
+    """
+    Given an arguments list and an argparse namespace (after
+    parsing the args), a list of compatible media names will be
+    returned (sorted by compatibility weight).
+    """
+    media_weights = [
+        (media(media_name).check_args_namespace_relation(
+            args=args, namespace=namespace), media_name)
+        for media_name in mediums_list()
+    ]
+
+    media_weights = sorted([(weight, name) for weight, name in media_weights
+                            if weight > 0], reverse=True)
+
+    return [name for weight, name in media_weights]

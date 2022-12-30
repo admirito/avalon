@@ -1,4 +1,6 @@
 import argparse
+import sys
+import unittest.mock
 
 from .auxiliary import classproperty
 
@@ -50,6 +52,9 @@ class RequiredValue:
         return f"<RequiredValue: {self.name}>"
 
     __repr__ = __str__
+
+    def __eq__(self, value):
+        return isinstance(value, self.__class__) and self.name == value.name
 
 
 class BaseRepository:
@@ -215,3 +220,57 @@ class BaseRepository:
             temp_namespace = argparse.Namespace()
 
         return cls.namespace_to_kwargs(temp_namespace)
+
+    @classmethod
+    def args_list(cls):
+        """
+        Returns a list of all the acceptable argparse
+        arguments. The list will be determined by calling
+        `add_arguments` class on a mock group and analyzing the
+        changes on the mock object.
+        """
+        group = unittest.mock.Mock()
+        cls.add_arguments(group)
+
+        args = [call.args for call in group.add_argument.call_args_list]
+        args = sum(args, ())  # flatten the list
+
+        return list(args)
+
+    @classmethod
+    def check_args_namespace_relation(cls, args=None, namespace=None):
+        """
+        Given an argparse list of arguments and the result
+        Namespace after parsing them, this method will return a
+        number that determines if the namespace is related to this
+        repository or not. This is useful for automatic selection of
+        repository according to arguments.
+
+        The reuslt number will be 0 if there is no relationship and
+        higher and higher as the relationship is more strong!
+
+        The default implementation of this method will return `1` if
+        it can find at least one argument releated to the class and
+        `0` otherwise, but the sub-classes may change this behaviour.
+        """
+        args = sys.argv[1:] if args is None else args
+        namespace = namespace or argparse.Namespace()
+
+        args_list = cls.args_list()
+
+        for arg in args:
+            if arg == "--":
+                break  # skip positional arguments after --
+
+            if arg.startswith("-"):
+                for class_arg in args_list:
+                    if arg.startswith(class_arg):
+                        return 1  # we have found a matching argument
+
+        kwargs = cls.namespace_to_kwargs(namespace)
+        default_kwargs = cls.default_kwargs()
+
+        # If the default arguments are different than the parsed
+        # arguments then the namespace probably has provided an
+        # argument to modify the default.
+        return 1 if kwargs != default_kwargs else 0
