@@ -4,15 +4,15 @@ import inspect
 import pkgutil
 import time
 
+from .. import registry
 from ..auxiliary import importall
-from ..registry import Registry, BaseRepository
 from ..auxiliary import classproperty
 
 # Extend __path__ to enable avlaon namespace package extensions
 __path__ = pkgutil.extend_path(__path__, __name__)
 
 
-class BaseModel(BaseRepository):
+class BaseModel(registry.BaseRepository):
     """
     A generic parent for the Models. Each Model is responsible for
     generating data that could be serialized by a Format.
@@ -107,7 +107,7 @@ def get_models():
     try:
         return _models
     except NameError:
-        _models = Registry()
+        _models = registry.Registry()
 
     _models.register(TestModel.__title__, TestModel)
 

@@ -68,6 +68,22 @@ def models_completer(prefix="", action=None, parser=None, parsed_args=None,
     return [f"{new_prefix_str}{suggestion}" for suggestion in suggestions]
 
 
+def get_mapping_names(model_names):
+    """
+    Given a list of model name strings in format
+    "...{mapping1,mapping2,...} the list of all the mapping names will
+    be returned.
+    """
+    result = []
+
+    for model in model_names:
+        match = re.match(r"[^{]*\{(.*)\}", model)
+        if match:
+            result.extend(match.group(1).split(","))
+
+    return result
+
+
 def main():
     """
     The main entrypoint for the application
@@ -116,14 +132,6 @@ def main():
         "--media-ignore-errors", action="store_true",
         help="Ignore errors while sending data over media.")
     parser.add_argument(
-        "--filter", metavar="<keys>", type=str, action="append",
-        dest="filters", default=[],
-        help="Only the specified <keys> will be generated. This option \
-        could be repeated or a list of comma separated <keys> should \
-        be provieded. The output will use the same order as it is \
-        provided here in the command-line so it could be used to set \
-        the csv columns order.")
-    parser.add_argument(
         "--map", type=str, action="append", dest="mappings", default=[],
         metavar=f"{{{','.join(mappings.mappings_list())},[custom url]}}",
         help="Map the model output with the specified map. This argument "
@@ -131,10 +139,16 @@ def main():
     ).completer = lambda **kwargs: mappings.mappings_list() + ["file:///"]
     format_group.add_argument(
         "--rawlog", action="store_true",
-        help="Equivalent to --filter=msg --format=csv.")
+        help="Equivalent to --include=msg --format=csv.")
     parser.add_argument(
         "--list-models", action="store_true",
         help="Print the list of available data models and exit.")
+    parser.add_argument(
+        "--list-formats", action="store_true",
+        help="Print the list of available formats and exit.")
+    parser.add_argument(
+        "--list-mediums", action="store_true",
+        help="Print the list of available mediums and exit.")
     parser.add_argument(
         "--list-mappings", action="store_true",
         help="Print the list of available mappings and exit.")
@@ -196,6 +210,16 @@ def main():
         sys.stderr.write("\n")
         exit(0)
 
+    if args.list_formats:
+        sys.stderr.write("\n".join(formats.formats_list()))
+        sys.stderr.write("\n")
+        exit(0)
+
+    if args.list_mediums:
+        sys.stderr.write("\n".join(mediums.mediums_list()))
+        sys.stderr.write("\n")
+        exit(0)
+
     if args.list_mappings:
         sys.stderr.write("\n".join(mappings.mappings_list()))
         sys.stderr.write("\n")
@@ -205,48 +229,79 @@ def main():
         args.batch_size = min(args.number, 1000)
 
     if args.rawlog:
-        if args.filters:
+        if args.simple_mappings:
             sys.stderr.write(
-                "WARNING: filter argument will be ignored when output format"
-                "is rawlog.\n")
+                "WARNING: 'simple' mapping arguments will be ignored when "
+                "output format is rawlog.\n")
 
         args.output_format = "csv"
-        args.filters = ["msg"]
-
-    filters = [i.split(",") for i in args.filters]
-    filters = sum(filters, [])  # flatten the list
+        args.simple_mappings = [{"class": "include", "values": ["msg"]}]
 
     if args.output_media is None:
-        acceptable_mediums = mediums.compatible_mediums(namespace=args)
-        if not acceptable_mediums:
+        compat_mediums = mediums.compatible_mediums(namespace=args)
+        if not compat_mediums:
             args.output_media = "file"
         else:
-            args.output_media = acceptable_mediums[0]
-            if len(acceptable_mediums) == 1:
+            args.output_media = compat_mediums[0]
+            if len(compat_mediums) == 1:
                 sys.stderr.write(
                     f"NOTE: {args.output_media!r} will be used as output "
                     f"media.\n")
             else:
                 sys.stderr.write(
                     f"WARNING: The choice of output media is ambiguous ("
-                    f"{', '.join(acceptable_mediums)}). "
+                    f"{', '.join(compat_mediums)}). "
                     f"{args.output_media!r} will be used as output "
                     f"media.\n")
 
     media_class = mediums.media(args.output_media)
 
     if args.output_format is None:
-        if media_class.default_format is not None:
+        compat_formats = formats.compatible_formats(namespace=args)
+
+        if compat_formats:
+            # If there is a compatible format according to input
+            # arguments we choose it as the defualt
+            if len(compat_formats) == 1:
+                args.output_format = compat_formats[0]
+                sys.stderr.write(
+                    f"NOTE: {args.output_format!r} will be used as output "
+                    f"format.\n")
+            else:
+                args.output_format = (
+                    media_class.default_format
+                    if media_class.default_format in compat_formats
+                    else compat_formats[0])
+                sys.stderr.write(
+                    f"WARNING: The choice of output format is ambiguous ("
+                    f"{', '.join(compat_formats)}). "
+                    f"{args.output_format!r} will be used as output "
+                    f"format.\n")
+        elif media_class.default_format is not None:
+            # If there is no compatible format, second choice is the
+            # media class default format
             args.output_format = media_class.default_format
             sys.stderr.write(
                 f"NOTE: {args.output_format!r} will be used as output "
                 f"format.\n")
         else:
+            # The ultimate default if other strategies to select the
+            # default failed:
             args.output_format = "json-lines"
 
     format_class = formats.format(args.output_format)
-    _format = format_class(filters=filters,
-                           **format_class.namespace_to_kwargs(args))
+    _format = format_class(**format_class.namespace_to_kwargs(args))
+
+    # Automatically add mappings if they are compatible with the input
+    # arguments (i.e. releated arguments of the mappings are present)
+    current_mappings = set(get_mapping_names(args.model) + args.mappings)
+    compat_mappings = mappings.compatible_mappings(namespace=args)
+    new_mappings = [i for i in compat_mappings if i not in current_mappings]
+    if new_mappings:
+        args.mappings.extend(new_mappings)
+        sys.stderr.write(
+            f"NOTE: {', '.join(repr(i) for i in new_mappings)} "
+            f"mapping{'s' if len(new_mappings) > 1 else ''} will be used.\n")
 
     batch_generators = []
 

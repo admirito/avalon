@@ -6,10 +6,11 @@ import types
 import urllib
 
 from .. import models
-from ..registry import Registry, BaseRepository
+from .. import registry
+from ..auxiliary import classproperty
 
 
-class Mappings(Registry):
+class Mappings(registry.Registry):
     """
     An abstraction for keeping a list of available mappings.
 
@@ -58,7 +59,7 @@ class Mappings(Registry):
         raise ValueError(f"No class with a map method found in {class_name}")
 
 
-class BaseMapping(BaseRepository):
+class BaseMapping(registry.BaseRepository):
     """
     A generic parent for the Mappings. Each Mapping is responsible
     for map the output of a Model instance to a new one.
@@ -66,6 +67,16 @@ class BaseMapping(BaseRepository):
 
     # disable accepting arguments started with __title__
     args_prefix = None
+
+    @classproperty
+    def args_group_description(cls):
+        """
+        `args_group_description` class attribute defaults to a
+        generic description but it can be overridden in sub-classes.
+        """
+        return (
+            f"Arguments for {cls.args_group_title!r} mapping"
+            if cls.args_group_title and cls.default_kwargs() else None)
 
     def map_model(self, model_instance):
         """
@@ -108,13 +119,14 @@ def get_mappings():
     except NameError:
         _mappings = Mappings()
 
+    from .simple import SimpleMapping
     from .jsoncolumn import JsonColumnMapping, Int32IxMapping
     from .cast import DtToIsoMapping, DtToTimestampMapping
     from .grpc import (
         RFlowProtoMapping, RFlowHelloGRPCSensorIDMapping, LogProtoMapping)
 
-    for mapping in [JsonColumnMapping, Int32IxMapping, DtToIsoMapping,
-                    DtToTimestampMapping, RFlowProtoMapping,
+    for mapping in [SimpleMapping, JsonColumnMapping, Int32IxMapping,
+                    DtToIsoMapping, DtToTimestampMapping, RFlowProtoMapping,
                     RFlowHelloGRPCSensorIDMapping, LogProtoMapping]:
         _mappings.register(mapping.__title__, mapping)
 
@@ -135,3 +147,15 @@ def mapping(mapping_name):
     from get_mappings() method.
     """
     return get_mappings().get_class(mapping_name)
+
+
+def compatible_mappings(args=None, namespace=None):
+    """
+    Given an arguments list and an argparse namespace (after
+    parsing the args), a list of compatible mapping names will be
+    returned (sorted by compatibility weight).
+    """
+    return [repo.__title__ for repo in
+            registry.compatible_repos(
+                (mapping(mapping_name) for mapping_name in mappings_list()),
+                args=args, namespace=namespace)]

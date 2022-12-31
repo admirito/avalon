@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-from ..registry import Registry, BaseRepository
+from .. import registry
 from ..auxiliary import classproperty
 
 
-class BaseFormat(BaseRepository):
+class BaseFormat(registry.BaseRepository):
     """
     A generic parent for the Formats. Each Fromat is responsible
     for serializing the output of a Model instance.
@@ -17,9 +17,6 @@ class BaseFormat(BaseRepository):
     # disable accepting arguments started with __title__
     args_prefix = None
 
-    class NOTSET:
-        pass
-
     @classproperty
     def args_group_description(cls):
         """
@@ -29,23 +26,6 @@ class BaseFormat(BaseRepository):
         return (
             f"Arguments for {cls.args_group_title!r} format"
             if cls.args_group_title and cls.default_kwargs() else None)
-
-    def __init__(self, filters=None, **kwargs):
-        self.filters = filters or []
-        self.filters_nonexistent_default = self.NOTSET
-
-        super().__init__(**kwargs)
-
-    def apply_filters(self, model_data):
-        """
-        """
-        if not self.filters:
-            return model_data
-
-        return {key: model_data.get(key, self.filters_nonexistent_default)
-                for key in self.filters
-                if self.filters_nonexistent_default is not self.NOTSET or
-                key in self.filters}
 
     def batch(self, model, size):
         """
@@ -65,7 +45,7 @@ def get_formats():
     try:
         return _formats
     except NameError:
-        _formats = Registry()
+        _formats = registry.Registry()
 
     from .linebase import (
         JsonLinesFormat, CSVFormat, HeaderedCSVFormat, BatchHeaderedCSVFormat)
@@ -95,3 +75,15 @@ def format(format_name):
     from get_formats() method.
     """
     return get_formats().get_class(format_name)
+
+
+def compatible_formats(args=None, namespace=None):
+    """
+    Given an arguments list and an argparse namespace (after
+    parsing the args), a list of compatible format names will be
+    returned (sorted by compatibility weight).
+    """
+    return [repo.__title__ for repo in
+            registry.compatible_repos(
+                (format(format_name) for format_name in formats_list()),
+                args=args, namespace=namespace)]

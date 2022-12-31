@@ -10,7 +10,7 @@ class ListFormat(BaseFormat):
         Call model next method `size` times and return it as a
         list.
         """
-        return [self.apply_filters(model.next()) for _ in range(size)]
+        return [model.next() for _ in range(size)]
 
 
 class SQLFormat(ListFormat):

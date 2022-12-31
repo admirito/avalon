@@ -274,3 +274,20 @@ class BaseRepository:
         # arguments then the namespace probably has provided an
         # argument to modify the default.
         return 1 if kwargs != default_kwargs else 0
+
+
+def compatible_repos(repo_classes_list, args=None, namespace=None):
+    """
+    Given a list of `BaseRepository` classes,
+    `check_args_namespace_relation` will be called on them. The
+    classes with weights higher than zero will be returned in the
+    ascending order of their weight.
+    """
+    weights = {repo: repo.check_args_namespace_relation(args=args,
+                                                        namespace=namespace)
+               for repo in repo_classes_list}
+
+    # filter repos with weight zero
+    weights = {repo: weight for repo, weight in weights.items() if weight > 0}
+
+    return sorted(weights.keys(), key=weights.get)

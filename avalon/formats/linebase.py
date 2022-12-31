@@ -15,7 +15,7 @@ class LineBaseFormat(BaseFormat):
     """
     def batch(self, model, size):
         return "\n".join(itertools.chain(
-            (self._to_line(self.apply_filters(model.next()))
+            (self._to_line(model.next())
              for _ in range(size)),
             [""]))  # add a \n to the end of the chain
 
@@ -44,23 +44,50 @@ class CSVFormat(LineBaseFormat):
 
     __title__ = "csv"
 
+    # commandeer 'simple' mapping arugment for the benefit of CSV
+    args_mapping = {"simple_mappings": "simple_mappings"}
+
+    @classmethod
+    def default_kwargs(cls):
+        """
+        Returns a dictionary of default values for the `__init__`
+        kwargs.
+        """
+        return {"simple_mappings": []}
+
+    @classmethod
+    def check_args_namespace_relation(cls, args=None, namespace=None):
+        """
+        The CSVFormat should not be selected according to the
+        input arguments, so this method will always return zero.
+        """
+        return 0
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self._fieldnames = []
         self._fieldnames_set = set()
 
-        if self.filters:
-            self._fieldnames = self.filters
-            self._fieldnames_set = set(self.filters)
+        if self.simple_mappings:
+            includes = [i for i in self.simple_mappings
+                        if i.get("class") == "include"]
+            if includes:
+                # we have to use the last include, other includes
+                # might be moidfied by other classes of simple mapping
+                # such as `exclude` and `rename`.
+                values = includes[-1].get("values", [])
+                values = [i.split(",") for i in values]
+                values = sum(values, [])  # flatten the list
 
-        self.filters_nonexistent_default = ""
+                self._fieldnames = values
+                self._fieldnames_set = set(values)
 
     def _to_line(self, item):
         fp = io.StringIO()
 
         for key in item.keys():
-            if not self.filters and key not in self._fieldnames_set:
+            if key not in self._fieldnames_set:
                 self._fieldnames.append(key)
                 self._fieldnames_set.add(key)
 

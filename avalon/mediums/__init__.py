@@ -3,11 +3,11 @@
 import contextlib
 import multiprocessing
 
-from ..registry import Registry, BaseRepository
+from .. import registry
 from ..auxiliary import classproperty
 
 
-class BaseMedia(BaseRepository):
+class BaseMedia(registry.BaseRepository):
     """
     A generic parent for Media classes. Each Media is responsible
     for transferring serialized batch data through a specific media.
@@ -62,7 +62,7 @@ def get_mediums():
     try:
         return _mediums
     except NameError:
-        _mediums = Registry()
+        _mediums = registry.Registry()
 
     from .file import FileMedia, DirectoryMedia
     from .grpc import GRPCMedia
@@ -103,13 +103,7 @@ def compatible_mediums(args=None, namespace=None):
     parsing the args), a list of compatible media names will be
     returned (sorted by compatibility weight).
     """
-    media_weights = [
-        (media(media_name).check_args_namespace_relation(
-            args=args, namespace=namespace), media_name)
-        for media_name in mediums_list()
-    ]
-
-    media_weights = sorted([(weight, name) for weight, name in media_weights
-                            if weight > 0], reverse=True)
-
-    return [name for weight, name in media_weights]
+    return [repo.__title__ for repo in
+            registry.compatible_repos(
+                (media(media_name) for media_name in mediums_list()),
+                args=args, namespace=namespace)]
