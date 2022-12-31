@@ -1,8 +1,10 @@
 import argparse
+import inspect
 import sys
 import unittest.mock
 
 from .auxiliary import classproperty
+from .auxiliary import importall
 
 
 class Registry:
@@ -18,6 +20,37 @@ class Registry:
         Register a new format class.
         """
         self._registry[class_name] = _class
+
+    def discover_and_register(self, package, base_class_or_tuple=None,
+                              extra_predicate=None):
+        """
+        Given a package, all its modules will be imported. Then
+        all the classes in the modules will be scanned and the ones
+        compatible with `base_classes` and `extra_predicate` will be
+        registered in the registry.
+
+        The `base_class_or_tuple` is a class or tuple of classes which
+        specifies that each chosen class must be a sub-class of one of
+        them.
+
+        The `extra_predicate` could be set as callable with a single
+        argument which accepts the class and return a Boolean. Only
+        classes with a True value from the predicate will be added to
+        the registry.
+        """
+        base_class_or_tuple = \
+            BaseRepository if base_class_or_tuple is None \
+            else base_class_or_tuple
+
+        importall(package)
+        for module_name, module in package.__dict__.items():
+            for cls_name, cls in getattr(module, "__dict__", {}).items():
+                if (inspect.isclass(cls) and
+                        issubclass(cls, base_class_or_tuple)) and \
+                        (not callable(extra_predicate) or
+                         extra_predicate(cls)):
+                    name = getattr(cls, "__title__", cls.__name__)
+                    self.register(name, cls)
 
     def classes_list(self):
         """

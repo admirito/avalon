@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
-import inspect
 import pkgutil
 import time
 
 from .. import registry
-from ..auxiliary import importall
 from ..auxiliary import classproperty
 
 # Extend __path__ to enable avlaon namespace package extensions
@@ -80,23 +78,6 @@ class LogModel(BaseModel):
         pass
 
 
-def _get_model_tuples(package):
-    """
-    Given a python package, all the modules inside it will be
-    iterated (the modules must be already imported) and every class
-    inside each module which is based on BaseModel and has the
-    attribute __model_name__ will be selected.
-
-    The result will be a generator of tuples: The __model_name__
-    attribute and the class itself.
-    """
-    for module_name, module in package.__dict__.items():
-        for cls_name, cls in getattr(module, "__dict__", {}).items():
-            if (inspect.isclass(cls) and issubclass(cls, BaseModel) and
-                    getattr(cls, "__title__", None)):
-                yield cls.__title__, cls
-
-
 def get_models():
     """
     Returns a singleton instance of Models class in which all the
@@ -117,10 +98,8 @@ def get_models():
     from . import log
     from . import ext
 
-    for discovering_package in [log, ext]:
-        importall(discovering_package)
-        for name, cls in _get_model_tuples(discovering_package):
-            _models.register(name, cls)
+    _models.discover_and_register(log, BaseModel)
+    _models.discover_and_register(ext, BaseModel)
 
     return _models
 

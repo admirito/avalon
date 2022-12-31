@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 
+import pkgutil
+
 from .. import registry
 from ..auxiliary import classproperty
+
+# Extend __path__ to enable avlaon namespace package extensions
+__path__ = pkgutil.extend_path(__path__, __name__)
 
 
 class BaseFormat(registry.BaseRepository):
@@ -57,6 +62,9 @@ def get_formats():
             BatchHeaderedCSVFormat, SQLFormat, GRPCFormat, IDMEFFormat,
             CorrelatedIDMEFFormat, PickledIDMEFFormat]:
         _formats.register(fmt.__title__, fmt)
+
+    from . import ext
+    _formats.discover_and_register(ext, BaseFormat)
 
     return _formats
 

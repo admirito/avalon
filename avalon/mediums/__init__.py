@@ -2,9 +2,13 @@
 
 import contextlib
 import multiprocessing
+import pkgutil
 
 from .. import registry
 from ..auxiliary import classproperty
+
+# Extend __path__ to enable avlaon namespace package extensions
+__path__ = pkgutil.extend_path(__path__, __name__)
 
 
 class BaseMedia(registry.BaseRepository):
@@ -77,6 +81,9 @@ def get_mediums():
             KafkaMedia, SOAPMedia, SqlMedia, PsycopgMedia, ClickHouseMedia,
             SyslogMedia]:
         _mediums.register(media.__title__, media)
+
+    from . import ext
+    _mediums.discover_and_register(ext, BaseMedia)
 
     return _mediums
 

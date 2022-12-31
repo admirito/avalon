@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import inspect
+import pkgutil
 import pathlib
 import types
 import urllib
@@ -8,6 +9,9 @@ import urllib
 from .. import models
 from .. import registry
 from ..auxiliary import classproperty
+
+# Extend __path__ to enable avlaon namespace package extensions
+__path__ = pkgutil.extend_path(__path__, __name__)
 
 
 class Mappings(registry.Registry):
@@ -129,6 +133,9 @@ def get_mappings():
                     DtToIsoMapping, DtToTimestampMapping, RFlowProtoMapping,
                     RFlowHelloGRPCSensorIDMapping, LogProtoMapping]:
         _mappings.register(mapping.__title__, mapping)
+
+    from . import ext
+    _mappings.discover_and_register(ext, BaseMapping)
 
     return _mappings
 
