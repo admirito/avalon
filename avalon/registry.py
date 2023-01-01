@@ -116,6 +116,8 @@ class BaseRepository:
     """
     __title__ = ""
 
+    disable_args_group = False
+
     @classproperty
     def args_group_title(cls):
         """
@@ -132,7 +134,8 @@ class BaseRepository:
         """
         return (
             f"Arguments for {cls.args_group_title!r}"
-            if cls.args_group_title and cls.default_kwargs() else None)
+            if cls.args_group_title and cls.default_kwargs() and
+            not cls.disable_args_group else None)
 
     args_mapping = None
 

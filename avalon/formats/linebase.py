@@ -47,6 +47,10 @@ class CSVFormat(LineBaseFormat):
     # commandeer 'simple' mapping arugment for the benefit of CSV
     args_mapping = {"simple_mappings": "simple_mappings"}
 
+    # simple_mappings are read for header ordering, but there are no
+    # specific argumetns for CSV format
+    disable_args_group = True
+
     @classmethod
     def default_kwargs(cls):
         """

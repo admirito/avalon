@@ -28,7 +28,8 @@ class BaseMedia(registry.BaseRepository):
         """
         return (
             f"Arguments for {cls.args_group_title!r} media"
-            if cls.args_group_title and cls.default_kwargs() else None)
+            if cls.args_group_title and cls.default_kwargs() and
+            not cls.disable_args_group else None)
 
     def __init__(self, max_writers=None, *,
                  ignore_errors=False, **kwargs):

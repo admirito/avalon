@@ -80,7 +80,8 @@ class BaseMapping(registry.BaseRepository):
         """
         return (
             f"Arguments for {cls.args_group_title!r} mapping"
-            if cls.args_group_title and cls.default_kwargs() else None)
+            if cls.args_group_title and cls.default_kwargs() and
+            not cls.disable_args_group else None)
 
     def map_model(self, model_instance):
         """

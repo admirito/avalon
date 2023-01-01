@@ -2,7 +2,7 @@ import re
 
 from . import BaseMedia
 from ..registry import RequiredValue
-from ..auxiliary import key_values_str_to_dict, parse_db_url
+from ..auxiliary import key_values_str_to_dict, parse_db_url, classproperty
 
 
 def _import_sql_libs():
@@ -93,7 +93,13 @@ class SqlMedia(BaseSqlMedia):
     """
 
     __title__ = "sql"
-    args_group_description = "Arguments for all 'sql' based media"
+
+    @classproperty
+    def args_group_description(cls):
+        return (
+            "Arguments for all 'sql' based media"
+            if cls.args_group_title and cls.default_kwargs() and
+            not cls.disable_args_group else None)
 
     def __init__(self, max_writers=None, **options):
         super().__init__(max_writers, **options)
@@ -158,7 +164,7 @@ class PsycopgMedia(BaseSqlMedia):
                     "sql_table_definition": "table_definition"}
 
     # remove the 'psycopg' entry from cli help
-    args_group_description = None
+    disable_args_group = True
 
     schemes = ["postgresql"]
 
@@ -215,7 +221,7 @@ class ClickHouseMedia(SqlMedia):
     args_prefix = "sql_"
 
     # remove the 'clickhouse' entry from cli help
-    args_group_description = None
+    disable_args_group = True
 
     schemes = ["clickhouse"]
 
