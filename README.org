@@ -40,11 +40,11 @@ commands:
 
 At the most simple from you can name a =model= as the command line
 argument of =avalon= and it will produce data for the specified model
-on the standard output. The following command uses the ==--rawlog==
+on the standard output. The following command uses the =--textlog=
 shortcut to generate logs similar to [[https://www.snort.org/][snort]] IDS:
 
 #+begin_src shell
-  avalon snort --rawlog
+  avalon snort --textlog
 #+end_src
 
 Multiple models could be used at the same time. You can also see the
@@ -54,7 +54,7 @@ available models by the following command:
   avalon --list-models
 #+end_src
 
-The default output format (without =--rawlog=) is =json-lines= which
+The default output format (without =--textlog=) is =json-lines= which
 output a JSON document on each line. Other formats like =csv= is also
 supported. To see the supported formats you can use the =--help=
 argument and checkout the options for =--output-format=, or just
@@ -86,16 +86,19 @@ by increasing the batch size by =--batch-size= argument.
 Also, =--output-writers= argument determines the simultaneous writes
 to the output media. So if your sink is a =file= or a =http= server or
 any other forms of mediums that supports concurrent writes it is
-advisable to increase =--output-writers= to gain higher utilization.
+possible to provide =--output-writers= to tune the parallelism.
 
 Here is an example that use multiple processes to write to a CSV file,
 10000 items per second.
 
-#+begin_src shelll
+#+begin_src shell
+  # You don't need to enter --output-media=file because
+  # Avalon will automatically infer it after you enter an
+  # argument such as --file-name
+  #
   avalon 20snort 5asa \
       --batch-size=1000 --rate=10000 --number=1000000 --output-writers=25 \
-      --output-format=headered-csv --output-media=file \
-      --output-file-name=test.csv
+      --output-format=headered-csv --file-name=test.csv
 #+end_src
 
 Avalon command line supports many more options that you could explore
@@ -104,7 +107,7 @@ the command line.
 
 ** Architecture
 
-Avalon architecture consists of three main abstractions that give it
+Avalon architecture consists of several abstractions that give it
 great flexibility:
 
 - Model :: Each model is responsible to generate a specific kind of
@@ -115,44 +118,49 @@ great flexibility:
   Model output is usually an unlimited iteration of Python
   dictionaries.
 
+- Mapping :: Mappings could transform data model for a different
+  purpose. For example one might want to use different key names in a
+  JSON or different column names in CSV or SQL database. You can
+  specify a chain of multiple mappings to achieve your goal.
+
 - Format :: Each format (or formatter) is responsible for converting a
   batch of model data to a specific format, e.g. JSON or CSV.
 
   Format output is usually a string or bytes array, although other
   types could also be used according to the output media.
 
- - Media :: Each media is responsible for transferring the batched
-   formatted data to a specific data sink. For example it could write
-   data to a file or send it to a remote server via network.
+- Media :: Each media is responsible for transferring the batched
+  formatted data to a specific data sink. For example it could write
+  data to a file or send it to a remote server via network.
 
-Avalon architecture is not limited to these abstractions. For example,
-*Processor* is responsible for forking processes to run concurrent
-data producers or *Mapping* classes could be defined to transform
-model data for more flexibility.
+- Generic Extension :: Generics, currently in Beta stage, are a brand
+  new type of extensions that gives the user ultimate flexibility to
+  modify input arguments or execute any tasks according to them.
 
 ** Extension
 
-*** Models
+Avalon supports third-party extensions. So, you can develop your own
+models, formats, etc. to generate data for your specific use cases or
+send them to a sink that Avalon does not support out of the box.
 
-Avalon supports third-party models. So, you can develop your own
-models to generate data for your specific use cases and you can also
-publish them publicly. More information is available at [[./avalon/models/ext/README.org][model
-extensions README]].
+You can also publish your developed extensions publicly if you think
+they could benefit other users.
+
+More information is available at [[./EXTENSIONS.org][EXTENSIONS.org]].
 
 *** Mappings
 
-Although models gives the user full flexibility to generate desired
-data, but sometimes different data models are required for just a
-simple transformation. For example one might want to use different key
-names in a JSON or different column names in CSV or SQL database
-tables and creating multiple models just for changing a key name might
-be cumbersome.
+Although developing and running an Avalon extension is as trivial as
+creating a specific directory structure and running =avalon= command
+with a specific =PYTHONPATH= environment variable, there is an even
+simpler method that might comes handy when you want to use a
+user-defined mapping.
 
 A mapping could modify the model output dictionary before being used
-by the formatter and it does not require the complex structure of a
-model. Avalon supports a couple of useful mappings out of the box, but
-new mappings could also be defined in a simple Python script without
-the requirement for installation.
+by the formatter. Avalon supports a couple of useful mappings out of
+the box, but new mappings could also be defined in a simple Python
+script and passing the file path as a URL in the =avalon= command
+line.
 
 For example, the following script if put in a =mymap.py= file could
 be used as a mapping:
@@ -172,16 +180,18 @@ be used as a mapping:
           return item
 #+end_src
 
-And now it could be passed to Avalon with =--map= as a URL:
+*NOTE*: Despite normal extension mappings which has to inherit from a
+specific base class, the mappings passed as =file://= URLs to =avalon=
+does not have such obligations.
+
+Now, the mapping could be passed to Avalon with =--map= as a URL:
 
 #+begin_src shell
   avalon --map=file:///path/to/mymap.py
 #+end_src
 
-Mappings could be very simple like the above example or they could be
-as complex as one to regenerate the whole model data. Although as
-Avalon supports passing multiple =--map= arguments and all the
-provided mappings will be applied in the specified order, one
+Avalon also supports passing multiple =--map= arguments and all the
+provided mappings will be applied in the specified order. One
 particular useful use-case is to define many simple mappings and
 combine them do achieve the desired goal.
 

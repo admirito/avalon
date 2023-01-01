@@ -1,0 +1,30 @@
+* Avalon Extended Mappings
+
+Avalon extended mappings follow the general structure of [[../../../EXTENSIONS.org][Avalon
+extensions]] and they have to be based on =avalon.mappings.BaseMapping=.
+
+You have to define a =map= method with a single =item= argument (other
+than =self=) that Avalon will pass the output of every model to
+it. The method *must* return an alternative value for the item that
+will be used instead of the model's output. For example, it could be a
+modified version of the input item.
+
+Here is an example:
+
+#+begin_src python
+  from avalon.mappings import BaseMapping
+
+  class SampleExtMapping(BaseMapping):
+      # The mapping will be available in avalon via this name
+      __title__ = "sample_ext_mapping"
+
+      # A class attribute for this example
+      _id_counter = 0
+
+      def map(self, item):
+          """
+          Reutrns a modfied version of the input `item`.
+          """
+          item["new_key"] = "new value"
+          return item
+#+end_src

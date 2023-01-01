@@ -1,30 +1,11 @@
 * Avalon Extended Models
-Avalon supports a couple of models out of the box, but it also
-supports third-party extensions for generating arbitrary data and it
-is as simple as writing a Python class with a =next= method that will
-return a new model data on every call.
 
-Avalon also supports [[https://packaging.python.org/en/latest/guides/packaging-namespace-packages/][Python namespace packages]] and will load all the
-modules in the =avalon.models.ext= sub-package, so all you have to do
-to develop a new model is to create a Python module and make sure it
-is importable from this path in Python.
+Avalon extended models follow the general structure of [[../../../EXTENSIONS.org][Avalon
+extensions]] and they have to be based on =avalon.models.BaseModel=.
 
-** Module structure
-
-Avalon will scan all the modules in the =avalon.models.ext= import
-path and use all the classes defined in the module top level as Avalon
-models if they have two conditions:
-
-1. The class must be a sub-class of =avalon.models.BaseModel=.
-
-2. The class must define a =__model_name__= with a string value. The
-   string value will be used to register the class in the Avalon
-   models registry and it will be available in the command-line with
-   this name.
-
-Also, you have to define a =next= method (without any arguments other
-than =self=), that Avalon will be called again and again. Each time it
-has to return a new value for the model.
+You have to define a =next= method (without any arguments other than
+=self=), that Avalon will call again and again to produce its output
+data. Each time it has to return a new value for the data model.
 
 Most Avalon formatters accept Python dictionaries so the returned
 value of the =next= method usually has to be a dictionary.
@@ -38,20 +19,20 @@ Here is an example:
 
   # The class must inherit from BaseModel to be recognized as a
   # avalon model
-  class TestExtModel(BaseModel):
+  class SampleExtModel(BaseModel):
       """
       A sample model, just for testing.
       """
 
       # The model will be available in avalon via this name. It shuld only
       #  contain engilish letters (upper or lower case) and underscore.
-      __model_name__ = "test_ext_model"
+      __title__ = "sample_ext_model"
 
       # A class attribute for this example
       _id_counter = 0
 
-      def __init__(self, **options):
-          super().__init__(**options)
+      def __init__(self, **kwargs):
+          super().__init__(**kwargs)
 
           # The __init__ method for all the instances will be executed
           # in a single python process.
@@ -68,20 +49,20 @@ Here is an example:
           return {"class_id": self._id,
                   # The `next` method might be executed in multiple
                   # processes for scalability. Especially if you run
-                  # avalon with multiple instances of `test_ext_model`.
+                  # avalon with multiple instances of `sample_ext_model`.
                   # So, os.getpid() might return different numbers.
                   "pid": os.getpid(),
                   "ts": time.time()}
 #+end_src
 
-If there deployment, the model could be used in the Avalon command
+After deployment, the model could be used in the Avalon command
 line:
 
 #+begin_src shell
-  avalon 5test_ext_model --number=10 --batch=2 --rate=100
+  avalon 5sample_ext_model --number=10 --batch=2 --rate=100
 #+end_src
 
-Note that in this scenario, =5test_ext_model= means 5 Avalon
+Note that in this scenario, =5sample_ext_model= means 5 Avalon
 producer processes. So the `next` method we defined might be executed
 in separate Python processes.
 
@@ -101,9 +82,9 @@ Here is an example that demonstrates the Avalon template models:
   from avalon.models.templates import log_templates, LogTemplateModel
 
   @log_templates(default_keys=True)
-  class TestTemplateModel(LogTemplateModel):
-      __model_name__ = "test_template_model"
-      all_name = "test"
+  class SampleTemplateModel(LogTemplateModel):
+      __title__ = "sample_template_model"
+      all_name = "sample"
       all_id = 1000
       all_create_time = "{ctime}"
 
@@ -160,9 +141,9 @@ it after some modifications. Here is an example:
   from avalon.models.templates import log_templates, LogTemplateModel
 
   @log_templates
-  class TestSeedTemplateModel(LogTemplateModel):
-      __model_name__ = "test_seed_template_model"
-      all_name = "test2"
+  class SampleSeedTemplateModel(LogTemplateModel):
+      __title__ = "sample_seed_template_model"
+      all_name = "sample2"
       all_msg = "custom seeds {number} and {letter}."
 
       def __seed__(self, seed):
@@ -195,9 +176,9 @@ will be called only when that template is chosen. Here is an example:
   from avalon.models.templates import log_templates, LogTemplateModel
 
   @log_templates
-  class TestInstanceSeedTemplateModel(LogTemplateModel):
-      __model_name__ = "test_instance_seed_template_model"
-      all_name = "test3"
+  class SampleInstanceSeedTemplateModel(LogTemplateModel):
+      __title__ = "sample_instance_seed_template_model"
+      all_name = "sample3"
 
       def random_number(self, seed):
           return {"number": random.randrange(0, 100)}
@@ -214,39 +195,3 @@ will be called only when that template is chosen. Here is an example:
            "letter": "{letter}"},
       ]
 #+end_src
-
-** Deploy the extensions on Avalon
-
-Avalon loads all the modules in the =avalon.models.ext=
-sub-package. So you have to create the directory structure
-=avalon/models/ext= and put your model modules in the =ext= directory.
-
-Avalon supports [[https://packaging.python.org/en/latest/guides/packaging-namespace-packages/][Python namespace packages]], therefore you can add the
-parent directory to the [[https://docs.python.org/3/library/sys.html#sys.path][Python import path]] and the models will be
-accessible through Avalon command line:
-
-#+begin_src shell
-  PYTHONPATH=. avalon --list-models
-#+end_src
-
-To publish your models you can use [[https://docs.python.org/3/distutils/setupscript.html][distutils setup script]]. Just put a
-=setup.py= file with the following content in the parent directory
-which contains the =avalon/models/ext= directory structure:
-
-#+begin_src python
-  #!/usr/bin/env python3
-
-  from distutils.core import setup
-
-  setup(name='avalon-testext',
-        version='1.0',
-        description='Test extenstions for avalon',
-        author='Mohammad Razavi',
-        author_email='the_email_address@host',
-        url='https://github.com/admirito/avalon/',
-        packages=['avalon.models.ext'],
-       )
-#+end_src
-
-Then you can install your modules with =pip install -e .= for
-development or publish it.

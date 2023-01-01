@@ -1,0 +1,35 @@
+* Avalon Extended Formats
+
+Avalon extended formats follow the general structure of [[../../../EXTENSIONS.org][Avalon
+extensions]] and they have to be based on =avalon.formats.BaseFormat=.
+
+You have to define a =batch= method with two arguments =model= and
+=size= (other than =self=), that Avalon will call to creates batches
+of data that will be send to a sink via mediums.
+
+The =model= is a model object (e.g. an instance of a [[../../models/ext/README.org][model extension]])
+with a =next= method. The batch method should call the =next= method
+=size= times and serialize the output in a format with compatible with
+Avalon mediums.
+
+Most Avalon mediums accept Python strings and bytes. Although the
+returned value of the =batch= method depends on the =media= that some
+one might use, it usually is =str= or =bytes=.
+
+Here is an example:
+
+#+begin_src python
+  import json
+  from avalon.formats import BaseFormat
+
+  class SampleExtFormat(BaseFormat):
+      # The format will be available in avalon via this name
+      __title__ = "sample_ext_format"
+
+      def batch(self, model, size):
+          """
+          Returns the serialized data for `size` number of data parts
+          retrieved via `model.next()`.
+          """
+          return "\n".join(json.dumps(model.next()) for _ in range(size))
+#+end_src

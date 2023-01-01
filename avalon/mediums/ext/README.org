@@ -1,0 +1,57 @@
+* Avalon Extended Mediums
+
+Avalon extended mediums follow the general structure of [[../../../EXTENSIONS.org][Avalon
+extensions]] and they have to be based on =avalon.mediums.BaseMedia=.
+
+You have to define a =_write= method with one argument =batch= (other
+than =self=), that Avalon will call upon each batch of formatted data
+that should be sent to its final destination.
+
+Here is an example that sends the output to the [[https://pipedream.com/][Pipedream]] platform. To
+run the example, first sign up [[https://pipedream.com/auth/signup][here]].
+
+#+begin_src python
+  import requests
+  from avalon.mediums import BaseMedia
+
+  class PipeDreamSampleExtMedia(BaseMedia):
+      # The media will be available in avalon via this name.
+      __title__ = "sample_pipedram_ext_media"
+
+      def _write(self, batch):
+          """
+          Send batch to pipedram platform
+          """
+          # `self.url` is present because the --pipedream-url will publish
+          # its value as `pipedream_url`. So by omitting `args_prefix`
+          # which is "pipedram_" we get "url".
+          requests.post(self.url,
+                        headers={"Content-Type": "application/json"},
+                        data=batch)
+
+      # This is a class attribute:
+      args_prefix = "pipedream_"
+
+      @classmethod
+      def add_arguments(cls, group):
+          """
+          Add class arguemtns to the argparse group
+          """
+          group.add_argument(
+              "--pipedream-url",
+              default="https://m.pipedream.net",
+              help="Your pipedream URL.")
+#+end_src
+
+You can run this example with the following command:
+
+#+begin_src shell
+  # if your extenstion is in "./pipedream/avalon/mediums/ext/pipedream.py"
+  # run the following command in ./pipedream directory:
+  PYTHONPATH=. avalon --pipedream-url="https://<your.key>.m.pipedream.net"
+#+end_src
+
+Note that you don't need to specify
+~--output-media=sample_pipedram_ext_media~ manually. Avalon will
+enable it as the output media automatically when you provide a value
+for =--pipedream-url=.
