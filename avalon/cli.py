@@ -7,6 +7,7 @@ import sys
 
 from . import __version__
 from . import formats
+from . import generics
 from . import mediums
 from . import mappings
 from . import models
@@ -88,10 +89,15 @@ def main():
     """
     The main entrypoint for the application
     """
+    # Instantiate generic extensions
+    # `**generic_class.namespace_to_kwargs(args)` cannot be passed to
+    # generic constructor as `args` doesn't exist at this porint!
+    generics.instantiate_generics()
+
     parser = argparse.ArgumentParser(
         description="real-time streaming data generator")
 
-    format_group = parser.add_mutually_exclusive_group()
+    generics.hook("pre_add_args", parser=parser)
 
     parser.add_argument(
         "model", nargs="*", metavar="[I]model[R][bB][{mapping,...}]",
@@ -119,7 +125,7 @@ def main():
     parser.add_argument(
         "--progress", metavar="<N>", type=int, default=5,
         help="Show the progress every <N> seconds.")
-    format_group.add_argument(
+    parser.add_argument(
         "--output-format", choices=formats.formats_list(), default=None,
         help="Set the output format for serialization.")
     parser.add_argument(
@@ -137,9 +143,6 @@ def main():
         help="Map the model output with the specified map. This argument "
         "could be used multiple times."
     ).completer = lambda **kwargs: mappings.mappings_list() + ["file:///"]
-    format_group.add_argument(
-        "--rawlog", action="store_true",
-        help="Equivalent to --include=msg --format=csv.")
     parser.add_argument(
         "--list-models", action="store_true",
         help="Print the list of available data models and exit.")
@@ -152,6 +155,9 @@ def main():
     parser.add_argument(
         "--list-mappings", action="store_true",
         help="Print the list of available mappings and exit.")
+    parser.add_argument(
+        "--list-generics", action="store_true",
+        help="Print the list of available generic extensions and exit.")
     parser.add_argument(
         "--completion-script", default=None, metavar="<shell>",
         nargs="?", const="bash", choices=["bash", "tsh", "fish"],
@@ -172,6 +178,9 @@ def main():
         mediums.media(media_name) for media_name in mediums.mediums_list()
     ] + [
         mappings.mapping(map_name) for map_name in mappings.mappings_list()
+    ] + [
+        generics.generic(generic_name)
+        for generic_name in generics.generics_list()
     ]
 
     # Add arguments of all the repos to the parser
@@ -180,6 +189,8 @@ def main():
             title=repo_class.args_group_title,
             description=repo_class.args_group_description)
         repo_class.add_arguments(group)
+
+    generics.hook("post_add_args", parser=parser)
 
     try:
         import argcomplete
@@ -194,6 +205,8 @@ def main():
         argcomplete.autocomplete(parser)
 
     args = parser.parse_args()
+
+    generics.hook("post_parse_args", args=args)
 
     if args.version:
         sys.stderr.write(f"Python {sys.version}\nAvalon {__version__}\n")
@@ -225,17 +238,13 @@ def main():
         sys.stderr.write("\n")
         exit(0)
 
+    if args.list_generics:
+        sys.stderr.write("\n".join(generics.generics_list()))
+        sys.stderr.write("\n")
+        exit(0)
+
     if args.batch_size is None:
         args.batch_size = min(args.number, 1000)
-
-    if args.rawlog:
-        if args.simple_mappings:
-            sys.stderr.write(
-                "WARNING: 'simple' mapping arguments will be ignored when "
-                "output format is rawlog.\n")
-
-        args.output_format = "csv"
-        args.simple_mappings = [{"class": "include", "values": ["msg"]}]
 
     if args.output_media is None:
         compat_mediums = mediums.compatible_mediums(namespace=args)
