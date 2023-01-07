@@ -43,8 +43,9 @@ def get_generics():
         _generics = registry.Registry()
 
     from .shortcuts import ShortcutExtension
+    from .modelsargs import GeneralModelsArgumentsExtension
 
-    for gen in [ShortcutExtension]:
+    for gen in [ShortcutExtension, GeneralModelsArgumentsExtension]:
         _generics.register(gen.__title__, gen)
 
     from . import ext

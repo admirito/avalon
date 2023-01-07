@@ -41,6 +41,13 @@ class BaseSqlMedia(BaseMedia):
 
         self.con = None
 
+    @classproperty
+    def args_group_description(cls):
+        return (
+            "Arguments for all 'sql' based media"
+            if cls.args_group_title and cls.args_list() and
+            not cls.disable_args_group else None)
+
     @classmethod
     def add_arguments(cls, group):
         """
@@ -93,13 +100,6 @@ class SqlMedia(BaseSqlMedia):
     """
 
     __title__ = "sql"
-
-    @classproperty
-    def args_group_description(cls):
-        return (
-            "Arguments for all 'sql' based media"
-            if cls.args_group_title and cls.default_kwargs() and
-            not cls.disable_args_group else None)
 
     def __init__(self, max_writers=None, **options):
         super().__init__(max_writers, **options)

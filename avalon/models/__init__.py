@@ -27,7 +27,7 @@ class BaseModel(registry.BaseRepository):
         """
         return (
             f"Arguments for {cls.args_group_title!r} model"
-            if cls.args_group_title and cls.default_kwargs() and
+            if cls.args_group_title and cls.args_list() and
             not cls.disable_args_group else None)
 
     def next(self):
@@ -100,6 +100,8 @@ def get_models():
     from . import ext
 
     _models.discover_and_register(log, BaseModel)
+    _models.unregister("_template_model_")
+
     _models.discover_and_register(ext, BaseModel)
 
     return _models

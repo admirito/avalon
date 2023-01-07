@@ -1,5 +1,6 @@
 import argparse
 import inspect
+import itertools
 import sys
 import unittest.mock
 
@@ -20,6 +21,12 @@ class Registry:
         Register a new format class.
         """
         self._registry[class_name] = _class
+
+    def unregister(self, class_name):
+        """
+        Remove a new format class from the registry.
+        """
+        self._registry.pop(class_name)
 
     def discover_and_register(self, package, base_class_or_tuple=None,
                               extra_predicate=None):
@@ -49,7 +56,22 @@ class Registry:
                         issubclass(cls, base_class_or_tuple)) and \
                         (not callable(extra_predicate) or
                          extra_predicate(cls)):
-                    name = getattr(cls, "__title__", cls.__name__)
+
+                    name = getattr(cls, "__title__", None)
+
+                    # Replace title in both classes with no __title__
+                    # and classes with an empty __title__ with the
+                    # class name
+                    if not name:
+                        name = cls.__name__
+
+                    # Make sure the name is unique, if not, add a
+                    # suffix number to make it unique.
+                    for i in itertools.count(2):
+                        if name not in self._registry:
+                            break
+                        name = f"{name}{i}"
+
                     self.register(name, cls)
 
     def classes_list(self):
@@ -134,7 +156,7 @@ class BaseRepository:
         """
         return (
             f"Arguments for {cls.args_group_title!r}"
-            if cls.args_group_title and cls.default_kwargs() and
+            if cls.args_group_title and cls.args_list() and
             not cls.disable_args_group else None)
 
     args_mapping = None
@@ -234,6 +256,9 @@ class BaseRepository:
         `add_arguments` method and passes the output to
         `namespace_to_kwargs` method to determine the results.
 
+        The arguments defined in `args_mapping` will also be added to
+        the result with None as value.
+
         This method does not support arguments with required=True. So,
         it is advised to use `RequiredValue` as the default value for
         the arguments, which later will be catched in the `__init__`
@@ -255,7 +280,14 @@ class BaseRepository:
         except argparse.ArgumentError:
             temp_namespace = argparse.Namespace()
 
-        return cls.namespace_to_kwargs(temp_namespace)
+        kwargs = cls.namespace_to_kwargs(temp_namespace)
+
+        # Add non-existent `args_mappings` items with None as the
+        # value
+        kwargs = {**{key: None for key in (cls.args_mapping or {}).values()},
+                  **kwargs}
+
+        return kwargs
 
     @classmethod
     def args_list(cls):

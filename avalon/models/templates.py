@@ -50,21 +50,35 @@ class LogTemplateModel(BaseModel):
       - other types: It will be used as-is.
     """
 
+    __title__ = "_template_model_"
+
     templates = []
     enable_default_log_seeds = True
 
-    def _random_ip(self, stddev=100):
+    args_mapping = {
+        "model_ip_stddev": "model_ip_stddev",
+        "model_port_stddev": "model_port_stddev",
+        "model_valid_port_probability": "model_valid_port_probability",
+        "model_valid_ports": "model_valid_ports",
+    }
+
+    def _random_ip(self, stddev=None):
+        stddev = self.model_ip_stddev if stddev is None else stddev
+
         ip_int = choose_in_normal_distribution(
             -2 ** 31, 2 ** 31 - 1, stddev=stddev)
         ip_string = socket.inet_ntoa(struct.pack("!l", ip_int))
         return ip_int, ip_string
 
     def _random_valid_port(self):
-        return random.choices(
-            [21, 22, 23, 25, 80, 110, 220, 443],
-            weights=[10, 5, 5, 5, 100, 5, 5, 20])[0]
+        population, weights = self.model_valid_ports
+        return random.choices(population, weights=weights)[0]
 
-    def _random_port(self, stddev=2, valid_port_probability=0.4):
+    def _random_port(self, stddev=None, valid_port_probability=None):
+        stddev = self.model_port_stddev if stddev is None else stddev
+        valid_port_probability = self.model_valid_port_probability \
+            if valid_port_probability is None else valid_port_probability
+
         return self._random_valid_port() \
             if random.random() < valid_port_probability else \
             choose_in_normal_distribution(1, 32768, stddev=stddev)

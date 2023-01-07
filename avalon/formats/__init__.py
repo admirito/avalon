@@ -30,7 +30,7 @@ class BaseFormat(registry.BaseRepository):
         """
         return (
             f"Arguments for {cls.args_group_title!r} format"
-            if cls.args_group_title and cls.default_kwargs() and
+            if cls.args_group_title and cls.args_list() and
             not cls.disable_args_group else None)
 
     def batch(self, model, size):

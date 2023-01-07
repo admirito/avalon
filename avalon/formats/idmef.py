@@ -195,7 +195,7 @@ class IDMEFFormat(LineBaseFormat, IDMEFBaseFormat):
         mapping["calertidents"] = "".join(
             f'<alertident analyzerid="{aident["aid"]}">'
             f'{aident["ident"]}</alertident>'
-            for aident in mapping["calertidents"]
+            for aident in mapping.get("calertidents", [])
         )
 
         return mapping
