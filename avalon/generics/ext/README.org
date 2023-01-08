@@ -1,0 +1,37 @@
+* Avalon Extended Generics
+
+Avalon generic extensions has some differences with the general
+structure of [[../../../EXTENSIONS.org][Avalon extensions]]. Although =avalon.generics.BaseGeneric=
+is based on =avalon.registry.BaseRepository=.
+
+Avalon will instantiate all of the the generic extensions on first
+thing on startup and then it will call several hook methods that the
+extensions might use to implement any desired behavior.
+
+Note that Avalon generic extensions interface is still in Beta stage
+and might change in the future releases.
+
+Here is an example:
+
+#+begin_src python
+  from avalon.generics import BaseGenericExtension
+
+  class SampleExtGeneric(BaseGenericExtension):
+      # The generic will be available in avalon via this name.
+      __title__ = "sample_ext_generic"
+
+      def pre_add_args(self, parser):
+          # this hook will be called before adding the arguments to the
+          # parser (the argparse.ArgumentParser object used in Avalon cli)
+          pass
+
+      def post_add_args(self, parser):
+          # this hook will be called after adding the arguments to the
+          # parser
+          pass
+
+      def post_parse_args(self, args):
+          # this hook will be called after parsing the arguments.
+          # `args` is the result argparse.Namespace object.
+          pass
+#+end_src

@@ -1,0 +1,151 @@
+* Avalon Extensions
+
+Avalon supports the following sub-package extensions:
+
+|---------+-----------------------+----------------------------------------|
+| Type    | Sub-Package           | Base Class                             |
+|---------+-----------------------+----------------------------------------|
+| [[./avalon/models/ext/README.org][Model]]   | =avalon.models.ext=   | =avalon.models.BaseModel=              |
+| [[./avalon/mappings/ext/README.org][Mapping]] | =avalon.mappings.ext= | =avalon.formats.BaseFormat=            |
+| [[./avalon/formats/ext/README.org][Format]]  | =avalon.formats.ext=  | =avalon.mediums.BaseMedia=             |
+| [[./avalon/mediums/ext/README.org][Media]]   | =avalon.mediums.ext=  | =avalon.mappings.BaseMapping=          |
+| [[./avalon/generics/ext/README.org][Generic]] | =avalon.generics.ext= | =avalon.generics.BaseGenericExtension= |
+|---------+-----------------------+----------------------------------------|
+
+All the modules of each sub-package will be imported by Avalon. Then,
+the module will be scanned for the classes based on the related /Base
+Class/ of the sub-package. Each class could implement a [[./avalon/models/ext/README.org][Model]],
+[[./avalon/mappings/ext/README.org][Mapping]], [[./avalon/formats/ext/README.org][Format]], [[./avalon/mediums/ext/README.org][Media]] or [[./avalon/generics/ext/README.org][Generic]] extension for Avalon.
+
+All the classes are based on =avalon.registry.BaseRepository= and
+share some features that are described below. Also, each type of
+extension has its own characteristics, for more information about
+which you can refer to the specific document of that extension type.
+
+** Example
+
+#+begin_src python
+  import random
+  from avalon.models import BaseModel
+  
+  class SampleExtModel(BaseModel):
+      # The model will be available in avalon via this name.
+      __title__ = "sample"
+
+      # The default value for arg_prefix will be inferred according
+      # to __title__ value as defined below, although you can override
+      # it to you desired alternative.
+      #
+      # args_prefix = "sample_"
+
+      # For arguments without "sample_" prefix we can use a mapping
+      args_mapping = {"different_prefix": "new_name"}
+
+      def __init__(self, **kwargs):
+          # The extension parent __init__ will automatically add the
+          # user provided arguments as class members omitting its
+          # `args_prefix` prefix or using its new name from the mapping
+          super().__init__(**kwargs)
+
+          # The "sample_foo" argument no is accessible as self.foo
+          print(self.foo)
+
+          # The "different_prefix" argument is accessible as self.new_name
+          print(self.new_name)
+
+      def next(self):
+          """
+          Reutrns a single document on each call as a python dictionary.
+          This is specific for "Model" extensions.
+          """
+          return {"random": random.randrange(10)}
+
+      @classmethod
+      def add_arguments(cls, group):
+          """
+          Add class arguemtns to the argparse group
+          """
+          # The default dest for --sample-foo in argparse will be
+          # dest="sample_foo"
+          group.add_argument(
+              "--sample-foo", default="sample1",
+              help="Sample argument for the model.")
+          # The default dest for --different-prefix in argparse will be
+          # dest="different_prefix"
+          group.add_argument(
+              "--different-prefix", default="sample2",
+              help="Sample argument without '--sample' prefix.")
+#+end_src
+
+** =__title__= class attribute
+
+The =__title__= attribute specifies the name with witch the extension
+will be registered at Avalon. For example if the =__title__= for a
+Media class is =example=, you can enable that media in Avalon with
+~--output-media=example~ argument.
+
+** Arguments
+
+In the extension class, you can add command line arguments to Avalon
+and access their value as class members.
+
+*** =add_arguments= class method
+
+The class method =add_arguments= will accept a =group= argument which
+is an [[https://docs.python.org/dev/library/argparse.html#argument-groups][argparse group]]. Every argument added to this group will be added
+to Avalon command line and will be available in instance methods of
+the class as member attributes via its [[https://docs.python.org/dev/library/argparse.html#dest][dest]] name after some
+modifications defined in =args_prefix= and =args_mapping=.
+
+*** =args_prefix= class attribute
+
+The prefix defined in =args_prefix= class attribute will be omitted
+from [[https://docs.python.org/dev/library/argparse.html#dest][dest]] name of the arguments, before adding them as instance
+members.
+
+*** =args_mapping= class attribute
+
+For the arguments without the =args_prefix= prefix, the =args_mapping=
+dictionary could be used to specifically define new names.
+
+** Deployment
+
+Avalon loads all the modules in the specified =ext= directories as
+sub-packages. So you have to create the directory structure
+=avalon/<extension type>/ext= and put your extension modules in the
+=ext= directory.
+
+Avalon also supports [[https://packaging.python.org/en/latest/guides/packaging-namespace-packages/][Python namespace packages]], therefore you can add
+the parent directory to the [[https://docs.python.org/3/library/sys.html#sys.path][Python import path]] and the extensions will
+be accessible through Avalon command line:
+
+#+begin_src shell
+  # If you implemented a new model extension in ./avalon/models/ext,
+  # you can run the following command in the parent directory (one
+  # directory before "avalon" directory itself), and you have to see
+  # your model title in the result.
+  PYTHONPATH=. avalon --list-models
+#+end_src
+
+To publish your extensions you can use [[https://setuptools.readthedocs.io/en/latest/setuptools.html][setuptools]]. Just put a
+=setup.py= file with the following content in the parent directory
+which contains the =avalon/.../ext= directory structure:
+
+#+begin_src python
+  #!/usr/bin/env python3
+
+  from setuptools import setup
+
+  setup(name="avalon-sample-ext",
+        version="1.0",
+        description="Sample extenstions for avalon",
+        author="Your name",
+        author_email="the_email_address@host",
+        url="https://github.com/admirito/avalon/",
+        packages=["avalon.models.ext"],  # Add your other extension types
+                                         # here.
+       )
+#+end_src
+
+Then you can install your modules with =pip install -e .= for
+development or [[https://packaging.python.org/en/latest/tutorials/packaging-projects/#uploading-the-distribution-archives][publish it]] to [[https://pypi.org/][PyPI]].

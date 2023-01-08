@@ -82,7 +82,7 @@ class Processor:
         # self.pool.map(self._process, self.batch_generators)
         self.pool.map(self._process_classmethod,
                       [(self._instance_index, i)
-                       for i in self.batch_generators])
+                       for i in range(len(self.batch_generators))])
 
     def stop(self):
         """
@@ -149,9 +149,9 @@ class Processor:
         call _process mehtod for a specific instance object by
         leveraging the _instances attribute of Processor class.
         """
-        self_index, batch_generator = args
+        self_index, batch_generator_index = args
         self = cls._instances[self_index]
-        cls._process(self, batch_generator)
+        cls._process(self, self.batch_generators[batch_generator_index])
 
     def _process(self, batch_generator):
         """
